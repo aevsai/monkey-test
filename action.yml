@@ -1,0 +1,54 @@
+name: "Browser Use Test Runner"
+description: "Run automated browser tests using Browser Use AI agent based on markdown test cases"
+author: "MonkeyTest Contributors"
+
+branding:
+  icon: "check-circle"
+  color: "blue"
+
+inputs:
+  api-key:
+    description: "Browser Use API key (required)"
+    required: true
+  test-directory:
+    description: "Directory containing markdown test case files"
+    required: true
+  llm-model:
+    description: "LLM model to use for Browser Use tasks"
+    required: false
+    default: "browser-use-llm"
+  fail-on-error:
+    description: "Fail the action if any test fails"
+    required: false
+    default: "true"
+  timeout:
+    description: "Timeout for each test in seconds"
+    required: false
+    default: "300"
+  save-outputs:
+    description: "Save Browser Use output files (screenshots, data) as artifacts"
+    required: false
+    default: "true"
+
+outputs:
+  results:
+    description: "JSON string containing detailed test results"
+  total-tests:
+    description: "Total number of tests executed"
+  passed-tests:
+    description: "Number of tests that passed"
+  failed-tests:
+    description: "Number of tests that failed"
+  results-file:
+    description: "Path to detailed test results JSON file"
+
+runs:
+  using: "docker"
+  image: "Dockerfile"
+  env:
+    BROWSER_USE_API_KEY: ${{ inputs.api-key }}
+    TEST_DIRECTORY: ${{ inputs.test-directory }}
+    LLM_MODEL: ${{ inputs.llm-model }}
+    FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+    TIMEOUT: ${{ inputs.timeout }}
+    SAVE_OUTPUTS: ${{ inputs.save-outputs }}
