@@ -9,21 +9,16 @@ docs/
 
 # Tests
 tests/
-test_*.py
-*_test.py
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
 
-# Python cache
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
+# Node modules (will be installed in container)
+node_modules/
 
-# Virtual environments
-venv/
-env/
-ENV/
-.venv
+# TypeScript source (only need dist/ in production)
+# src/
 
 # IDE
 .vscode/
@@ -36,10 +31,8 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Build artifacts
+# Build artifacts (will be built in container)
 dist/
-build/
-*.egg-info/
 
 # Test outputs
 test-results.json
@@ -55,6 +48,31 @@ scripts/
 # Examples
 examples/
 
-# Only include what's needed
-!requirements.txt
-!src/
+# Python legacy files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+requirements.txt
+*.egg-info/
+test_*.py
+*_test.py
+
+# Lock files for other package managers
+package-lock.json
+yarn.lock
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Environment files
+.env
+.env.local
+.env.*.local

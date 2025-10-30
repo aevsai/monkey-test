@@ -1,0 +1,43 @@
+{
+  "name": "monkey-test",
+  "version": "1.0.0",
+  "description": "Browser Use Test Runner - Execute browser tests using Browser Use AI agent",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "monkey-test": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "node dist/index.js",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "browser-use",
+    "testing",
+    "automation",
+    "ai",
+    "browser"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "browser-use-sdk": "^2.0.4",
+    "chalk": "^5.3.0",
+    "glob": "^10.3.10",
+    "gray-matter": "^4.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}
