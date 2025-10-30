@@ -1,5 +1,5 @@
 name: "Browser Use Test Runner"
-description: "Run automated browser tests using Browser Use AI agent based on markdown test cases"
+description: "Run automated browser tests using Browser Use AI agent based on markdown test cases or auto-generate tests from git diffs"
 author: "MonkeyTest Contributors"
 
 branding:
@@ -8,11 +8,11 @@ branding:
 
 inputs:
   api-key:
-    description: "Browser Use API key (required)"
-    required: true
+    description: "Browser Use API key (required for test execution)"
+    required: false
   test-directory:
-    description: "Directory containing markdown test case files"
-    required: true
+    description: "Directory containing markdown test case files (required for standard mode)"
+    required: false
   llm-model:
     description: "LLM model to use for Browser Use tasks"
     required: false
@@ -29,6 +29,32 @@ inputs:
     description: "Save Browser Use output files (screenshots, data) as artifacts"
     required: false
     default: "true"
+  from-commit:
+    description: "Generate tests from git diff (commit reference: main, HEAD~1, abc123, etc.)"
+    required: false
+  openai-api-key:
+    description: "OpenAI API key (required when using from-commit)"
+    required: false
+  test-generation-model:
+    description: "LLM model for test generation (default: gpt-4-turbo-preview)"
+    required: false
+    default: "gpt-4-turbo-preview"
+  generate-only:
+    description: "Only generate tests without executing them"
+    required: false
+    default: "false"
+  max-test-cases:
+    description: "Maximum number of test cases to generate (default: 10)"
+    required: false
+    default: "10"
+  max-diff-size:
+    description: "Maximum diff size in characters (default: 100000)"
+    required: false
+    default: "100000"
+  max-concurrency:
+    description: "Maximum number of concurrent tests (default: 3)"
+    required: false
+    default: "3"
 
 outputs:
   results:
@@ -39,6 +65,10 @@ outputs:
     description: "Number of tests that passed"
   failed-tests:
     description: "Number of tests that failed"
+  error-tests:
+    description: "Number of tests that encountered errors"
+  success-rate:
+    description: "Test success rate percentage"
   results-file:
     description: "Path to detailed test results JSON file"
 
@@ -52,3 +82,11 @@ runs:
     FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
     TIMEOUT: ${{ inputs.timeout }}
     SAVE_OUTPUTS: ${{ inputs.save-outputs }}
+    FROM_COMMIT: ${{ inputs.from-commit }}
+    OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+    TEST_GENERATION_MODEL: ${{ inputs.test-generation-model }}
+    GENERATE_ONLY: ${{ inputs.generate-only }}
+    MAX_TEST_CASES: ${{ inputs.max-test-cases }}
+    MAX_DIFF_SIZE: ${{ inputs.max-diff-size }}
+    MAX_CONCURRENCY: ${{ inputs.max-concurrency }}
+    ARTIFACT_DIR: "artifacts"

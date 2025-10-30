@@ -27,7 +27,7 @@ MonkeyTest is a TypeScript-based test runner that lets you write browser tests i
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - pnpm 8+ (install with `npm install -g pnpm`)
 - Browser Use API key from [Browser Use Cloud](https://cloud.browser-use.com)
 
@@ -52,6 +52,88 @@ Set your Browser Use API key as an environment variable:
 ```bash
 export BROWSER_USE_API_KEY="your-api-key-here"
 ```
+
+## Using as GitHub Action in External Repositories
+
+MonkeyTest can be used as a GitHub Action in your own repositories!
+
+### Quick Start
+
+```yaml
+name: Browser Tests
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Browser Tests
+        uses: aevsai/monkey-test@v0.6
+        with:
+          api-key: ${{ secrets.BROWSER_USE_API_KEY }}
+          test-directory: tests
+```
+
+### Auto-Generate Tests from PR Changes
+
+```yaml
+name: Auto-Generated Tests
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  auto-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate and Run Tests
+        uses: aevsai/monkey-test@v0.6
+        with:
+          from-commit: ${{ github.event.pull_request.base.sha }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          api-key: ${{ secrets.BROWSER_USE_API_KEY }}
+          max-test-cases: 10
+
+      - name: Upload Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            .monkey-test-generated/
+            artifacts/
+            test-results.json
+            browser-use-outputs/
+```
+
+### Action Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `api-key` | No* | - | Browser Use API key |
+| `test-directory` | No* | - | Test files directory (standard mode) |
+| `from-commit` | No | - | Generate tests from diff |
+| `openai-api-key` | No** | - | OpenAI API key (diff mode) |
+| `test-generation-model` | No | `gpt-4-turbo-preview` | Model for generation |
+| `generate-only` | No | `false` | Generate without executing |
+| `max-test-cases` | No | `10` | Max tests to generate |
+| `max-concurrency` | No | `3` | Concurrent execution |
+| `timeout` | No | `300` | Test timeout (seconds) |
+
+\* Required for standard mode  
+\** Required for diff-based mode
+
+**📖 Full external usage guide:** See [docs/EXTERNAL_USAGE.md](docs/EXTERNAL_USAGE.md) for 10+ workflow examples!
 
 ## Usage Modes
 
@@ -155,7 +237,7 @@ MonkeyTest includes built-in GitHub Actions support for automated testing on PRs
 The GitHub Actions workflow provides:
 
 1. **Step Summary**: Formatted markdown table with test results
-2. **Artifacts**: 
+2. **Artifacts**:
    - Generated test cases (`.md` files)
    - Git diff used for generation
    - Raw LLM response
@@ -570,28 +652,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: pnpm/action-setup@v2
         with:
           version: 8
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: 'pnpm'
-      
+
       - name: Install dependencies
         run: pnpm install
-      
+
       - name: Build
         run: pnpm build
-      
+
       - name: Run tests
         id: tests
         env:
           BROWSER_USE_API_KEY: ${{ secrets.BROWSER_USE_API_KEY }}
         run: pnpm test
-      
+
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
@@ -600,7 +682,7 @@ jobs:
           path: |
             test-results.json
             browser-use-outputs/
-      
+
       - name: Check results
         run: |
           echo "Total: ${{ steps.tests.outputs.total-tests }}"
