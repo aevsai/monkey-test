@@ -179,6 +179,7 @@ async function callLLMWithRetry(
         max_completion_tokens: 4000,
       });
 
+      console.log(response.choices);
       const content = response.choices[0]?.message?.content;
 
       if (!content) {
@@ -212,57 +213,47 @@ function parseTestCasesFromXML(xmlResponse: string): GeneratedTestCase[] {
   if (xmlMatch && xmlMatch[1]) {
     xmlContent = xmlMatch[1];
   }
-
   // Try to find <testplan> tags
   const testplanMatch = xmlContent.match(/<testplan>([\s\S]*)<\/testplan>/);
   if (testplanMatch) {
-    xmlContent = `<testplan>${testplanMatch[1]}</testplan>`;
+    xmlContent = `<testplan>${testplanMatch[0]}</testplan>`;
   }
-
-  // Parse XML
-  const parser = new XMLParser({
-    ignoreAttributes: false,
-    parseTagValue: true,
-    trimValues: true,
-  });
-
-  let parsed;
-  try {
-    parsed = parser.parse(xmlContent);
-  } catch (error) {
-    console.error('❌ Failed to parse XML response');
-    console.error('Raw response:', xmlResponse);
-    throw new Error(`Invalid XML response: ${error instanceof Error ? error.message : String(error)}`);
-  }
-
-  // Extract test cases
-  const testCases: GeneratedTestCase[] = [];
-
-  if (!parsed.testplan) {
+  // Use regex to extract content between testplan tags
+  const testPlanMatch = xmlContent.match(/<testplan>([\s\S]*?)<\/testplan>/);
+  if (!testPlanMatch) {
     throw new Error('No <testplan> element found in response');
   }
 
-  const testcaseData = parsed.testplan.testcase;
+  const testPlanContent = testPlanMatch[1];
 
-  if (!testcaseData) {
-    throw new Error('No <testcase> elements found in response');
-  }
+  // Extract all test cases using regex
+  const testCaseRegex = /<testcase>([\s\S]*?)<\/testcase>/g;
+  const testCases: GeneratedTestCase[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = testCaseRegex.exec(testPlanContent || '')) !== null) {
+    const testCaseContent = match[1];
 
-  // Handle single test case or array
-  const testcaseArray = Array.isArray(testcaseData) ? testcaseData : [testcaseData];
+    // Extract individual fields
+    const nameMatch = testCaseContent?.match(/<name>([\s\S]*?)<\/name>/);
+    const descriptionMatch = testCaseContent?.match(/<description>([\s\S]*?)<\/description>/);
+    const taskMatch = testCaseContent?.match(/<task>([\s\S]*?)<\/task>/);
+    const expectedOutputMatch = testCaseContent?.match(/<expected_output>([\s\S]*?)<\/expected_output>/);
 
-  for (const tc of testcaseArray) {
-    if (!tc.name || !tc.task) {
-      console.warn('⚠️  Skipping invalid test case (missing name or task):', tc);
+    if (!nameMatch?.[1] || !taskMatch?.[1]) {
+      console.warn('⚠️  Skipping invalid test case (missing name or task)');
       continue;
     }
 
     testCases.push({
-      name: String(tc.name).trim(),
-      description: tc.description ? String(tc.description).trim() : '',
-      task: String(tc.task).trim(),
-      expectedOutput: tc.expected_output ? String(tc.expected_output).trim() : undefined,
+      name: nameMatch[1].trim(),
+      description: descriptionMatch?.[1]?.trim() || '',
+      task: taskMatch[1].trim(),
+      expectedOutput: expectedOutputMatch?.[1]?.trim() || undefined
     });
+  }
+
+  if (testCases.length === 0) {
+    throw new Error('No <testcase> elements found in response');
   }
 
   return testCases;
