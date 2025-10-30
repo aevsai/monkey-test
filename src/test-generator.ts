@@ -88,12 +88,12 @@ export async function generateTestCasesFromDiff(
  * Build prompt for LLM to generate test cases
  */
 function buildTestGenerationPrompt(diffResult: GitDiffResult, maxTestCases: number, baseUrl?: string): string {
-  const baseUrlSection = baseUrl 
+  const baseUrlSection = baseUrl
     ? `**Deployment URL:**
 The application is deployed at: ${baseUrl}
 ALL tests MUST start by navigating to this URL. Include "Navigate to ${baseUrl}" or "Visit ${baseUrl}" at the beginning of each test task.
 
-` 
+`
     : '';
 
   return `You are a QA engineer tasked with creating browser-based test cases from code changes.
@@ -176,12 +176,11 @@ async function callLLMWithRetry(
             content: prompt,
           },
         ],
-        temperature: 0.7,
         max_completion_tokens: 4000,
       });
 
       const content = response.choices[0]?.message?.content;
-      
+
       if (!content) {
         throw new Error('Empty response from LLM');
       }
@@ -190,7 +189,7 @@ async function callLLMWithRetry(
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       console.warn(`⚠️  Attempt ${attempt} failed: ${lastError.message}`);
-      
+
       if (attempt < maxRetries) {
         const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
         console.log(`⏳ Waiting ${delay}ms before retry...`);
@@ -208,7 +207,7 @@ async function callLLMWithRetry(
 function parseTestCasesFromXML(xmlResponse: string): GeneratedTestCase[] {
   // Extract XML content if wrapped in markdown code blocks
   let xmlContent = xmlResponse.trim();
-  
+
   const xmlMatch = xmlContent.match(/```(?:xml)?\s*([\s\S]*?)\s*```/);
   if (xmlMatch && xmlMatch[1]) {
     xmlContent = xmlMatch[1];
@@ -238,13 +237,13 @@ function parseTestCasesFromXML(xmlResponse: string): GeneratedTestCase[] {
 
   // Extract test cases
   const testCases: GeneratedTestCase[] = [];
-  
+
   if (!parsed.testplan) {
     throw new Error('No <testplan> element found in response');
   }
 
   const testcaseData = parsed.testplan.testcase;
-  
+
   if (!testcaseData) {
     throw new Error('No <testcase> elements found in response');
   }
@@ -288,12 +287,12 @@ async function saveTestCasesAsMarkdown(
       console.warn(`⚠️  Skipping undefined test case at index ${i}`);
       continue;
     }
-    
+
     const sanitizedName = tc.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-    
+
     const filename = `${i + 1}-${sanitizedName}.md`;
     const filepath = join(outputDir, filename);
 
@@ -314,7 +313,7 @@ async function saveTestCasesAsMarkdown(
  * Generate markdown test case from generated test case
  */
 function generateMarkdownTestCase(testCase: GeneratedTestCase, baseUrl?: string): string {
-  const baseUrlSection = baseUrl 
+  const baseUrlSection = baseUrl
     ? `## Test URL
 
 Conduct testing at: **${baseUrl}**
