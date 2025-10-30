@@ -21,6 +21,7 @@ export interface TestCase {
   llmModel: string;
   inputFiles: string[];
   expectedOutput?: string;
+  baseUrl?: string;
 }
 
 export interface TestResult {
@@ -56,6 +57,7 @@ export interface Config {
   saveOutputs: boolean;
   outputDir: string;
   maxConcurrency: number;
+  baseUrl?: string;
   // Diff-based test generation options
   fromCommit?: string;
   openaiApiKey?: string;

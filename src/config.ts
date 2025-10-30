@@ -16,6 +16,7 @@ export function loadConfig(): Config {
   const saveOutputs = process.env.SAVE_OUTPUTS !== "false";
   const outputDir = process.env.OUTPUT_DIR || "browser-use-outputs";
   const maxConcurrency = parseInt(process.env.MAX_CONCURRENCY || "3", 10);
+  const baseUrl = process.env.BASE_URL || getCliArg("--url");
 
   // Diff-based test generation options
   const fromCommit = process.env.FROM_COMMIT || getCliArg("--from-commit");
@@ -42,6 +43,7 @@ export function loadConfig(): Config {
     artifactDir,
     maxDiffSize,
     maxTestCases,
+    baseUrl,
   };
 }
 

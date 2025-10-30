@@ -46,9 +46,16 @@ export async function executeTest(
     console.log(`🚀 Creating Browser Use task in session ${session.id}...`);
     console.log(`📋 Task instructions: ${truncate(testCase.task, 200)}...`);
 
+    // Prepend base URL context if configured
+    let taskInstructions = testCase.task;
+    if (config.baseUrl) {
+      taskInstructions = `Conduct testing at: ${config.baseUrl}\n\n${testCase.task}`;
+      console.log(`🌐 Base URL: ${config.baseUrl}`);
+    }
+
     const taskParams: any = {
       sessionId: session.id,
-      task: testCase.task,
+      task: taskInstructions,
     };
 
     // Only add llm if it's a supported model (optional field)

@@ -20,6 +20,7 @@ export interface TestGenerationOptions {
   model?: string;
   maxTestCases?: number;
   outputDir?: string;
+  baseUrl?: string;
 }
 
 export interface TestGenerationResult {
@@ -45,7 +46,7 @@ export async function generateTestCasesFromDiff(
   const maxTestCases = options.maxTestCases || 10;
 
   // Build prompt
-  const prompt = buildTestGenerationPrompt(diffResult, maxTestCases);
+  const prompt = buildTestGenerationPrompt(diffResult, maxTestCases, options.baseUrl);
 
   console.log(`📝 Prompt length: ${prompt.length} characters`);
   console.log(`🔧 Using model: ${model}`);
@@ -72,7 +73,8 @@ export async function generateTestCasesFromDiff(
   // Convert to markdown and save
   const testFilePaths = await saveTestCasesAsMarkdown(
     testCases,
-    options.outputDir || '.monkey-test-generated'
+    options.outputDir || '.monkey-test-generated',
+    options.baseUrl
   );
 
   return {
@@ -85,10 +87,18 @@ export async function generateTestCasesFromDiff(
 /**
  * Build prompt for LLM to generate test cases
  */
-function buildTestGenerationPrompt(diffResult: GitDiffResult, maxTestCases: number): string {
+function buildTestGenerationPrompt(diffResult: GitDiffResult, maxTestCases: number, baseUrl?: string): string {
+  const baseUrlSection = baseUrl 
+    ? `**Deployment URL:**
+The application is deployed at: ${baseUrl}
+ALL tests MUST start by navigating to this URL. Include "Navigate to ${baseUrl}" or "Visit ${baseUrl}" at the beginning of each test task.
+
+` 
+    : '';
+
   return `You are a QA engineer tasked with creating browser-based test cases from code changes.
 
-**Git Diff Summary:**
+${baseUrlSection}**Git Diff Summary:**
 - From commit: ${diffResult.fromCommit}
 - To commit: ${diffResult.toCommit}
 - Files changed: ${diffResult.filesChanged.length}
@@ -112,7 +122,7 @@ Analyze the code changes and generate up to ${maxTestCases} browser-based test c
 5. User-facing functionality
 
 **Important Guidelines:**
-- Each test should be executable in a browser environment
+- Each test should be executable in a browser environment${baseUrl ? ` starting at ${baseUrl}` : ''}
 - Write clear, specific tasks that can be automated
 - Include expected outcomes where applicable
 - Focus on end-to-end user scenarios
@@ -264,7 +274,8 @@ function parseTestCasesFromXML(xmlResponse: string): GeneratedTestCase[] {
  */
 async function saveTestCasesAsMarkdown(
   testCases: GeneratedTestCase[],
-  outputDir: string
+  outputDir: string,
+  baseUrl?: string
 ): Promise<string[]> {
   // Create output directory
   await mkdir(outputDir, { recursive: true });
@@ -287,7 +298,7 @@ async function saveTestCasesAsMarkdown(
     const filepath = join(outputDir, filename);
 
     // Generate markdown content
-    const markdown = generateMarkdownTestCase(tc);
+    const markdown = generateMarkdownTestCase(tc, baseUrl);
 
     // Write file
     await writeFile(filepath, markdown, 'utf-8');
@@ -302,7 +313,15 @@ async function saveTestCasesAsMarkdown(
 /**
  * Generate markdown test case from generated test case
  */
-function generateMarkdownTestCase(testCase: GeneratedTestCase): string {
+function generateMarkdownTestCase(testCase: GeneratedTestCase, baseUrl?: string): string {
+  const baseUrlSection = baseUrl 
+    ? `## Test URL
+
+Conduct testing at: **${baseUrl}**
+
+`
+    : '';
+
   let markdown = `---
 name: ${testCase.name}
 description: ${testCase.description}
@@ -312,7 +331,7 @@ description: ${testCase.description}
 
 ${testCase.description}
 
-## Task
+${baseUrlSection}## Task
 
 ${testCase.task}
 `;

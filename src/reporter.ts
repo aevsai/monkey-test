@@ -108,9 +108,13 @@ export function printConfig(config: {
   saveOutputs: boolean;
   testDirectory: string;
   maxConcurrency: number;
+  baseUrl?: string;
 }): void {
   console.log(`\n🎯 Starting test execution...`);
   console.log(`📁 Test directory: ${config.testDirectory}`);
+  if (config.baseUrl) {
+    console.log(`🌐 Base URL: ${config.baseUrl}`);
+  }
   console.log(`⚙️  LLM Model: ${config.llmModel}`);
   console.log(`⏱️  Timeout: ${config.timeout}s per test`);
   console.log(`💾 Save outputs: ${config.saveOutputs}`);

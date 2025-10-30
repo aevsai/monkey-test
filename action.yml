@@ -29,6 +29,9 @@ inputs:
     description: "Save Browser Use output files (screenshots, data) as artifacts"
     required: false
     default: "true"
+  base-url:
+    description: "Base URL where the application is deployed (conduct testing here)"
+    required: false
   from-commit:
     description: "Generate tests from git diff (commit reference: main, HEAD~1, abc123, etc.)"
     required: false
@@ -82,6 +85,7 @@ runs:
     FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
     TIMEOUT: ${{ inputs.timeout }}
     SAVE_OUTPUTS: ${{ inputs.save-outputs }}
+    BASE_URL: ${{ inputs.base-url }}
     FROM_COMMIT: ${{ inputs.from-commit }}
     OPENAI_API_KEY: ${{ inputs.openai-api-key }}
     TEST_GENERATION_MODEL: ${{ inputs.test-generation-model }}

@@ -40,12 +40,14 @@ USAGE:
 
 OPTIONS:
   --from-commit <ref>   Generate tests from git diff (commit reference)
+  --url <url>           Base URL where the application is deployed
   --generate-only       Only generate tests, don't execute them
   --help                Show this help message
 
 ENVIRONMENT VARIABLES:
   BROWSER_USE_API_KEY        API key for Browser Use (required for standard mode)
   OPENAI_API_KEY             API key for OpenAI (required for --from-commit mode)
+  BASE_URL                   Base URL where application is deployed (optional)
   TEST_DIRECTORY             Directory containing test files (default: tests)
   LLM_MODEL                  LLM model for test execution (default: browser-use-llm)
   TEST_GENERATION_MODEL      LLM model for test generation (default: gpt-4-turbo-preview)
@@ -62,8 +64,11 @@ EXAMPLES:
   # Run existing tests
   monkey-test
 
+  # Run tests against a specific deployment
+  monkey-test --url https://staging.example.com
+
   # Generate tests from git diff
-  monkey-test --from-commit main
+  monkey-test --from-commit main --url https://staging.example.com
 
   # Generate tests only (don't execute)
   monkey-test --from-commit HEAD~3 --generate-only
@@ -113,6 +118,7 @@ EXAMPLES:
       model: this.config.testGenerationModel,
       maxTestCases: this.config.maxTestCases,
       outputDir: '.monkey-test-generated',
+      baseUrl: this.config.baseUrl,
     });
 
     console.log(`✅ Generated ${generationResult.testCases.length} test case(s)`);
@@ -231,6 +237,7 @@ EXAMPLES:
       saveOutputs: this.config.saveOutputs,
       testDirectory: this.config.testDirectory,
       maxConcurrency: this.config.maxConcurrency,
+      baseUrl: this.config.baseUrl,
     });
 
     // Run tests concurrently with max concurrency limit
