@@ -2,7 +2,7 @@
  * Configuration management for Browser Use Test Runner
  */
 
-import { Config } from "./types.js";
+import { Config } from "./types";
 
 /**
  * Load configuration from environment variables

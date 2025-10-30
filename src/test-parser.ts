@@ -5,7 +5,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import matter from "gray-matter";
-import { TestCase, TestMetadata } from "./types.js";
+import { TestCase, TestMetadata } from "./types";
 
 /**
  * Parse a markdown test case file

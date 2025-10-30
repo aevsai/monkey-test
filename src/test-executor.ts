@@ -5,13 +5,13 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import { BrowserUseClient } from "browser-use-sdk";
-import { TestCase, TestResult, Config } from "./types.js";
+import { TestCase, TestResult, Config } from "./types";
 import {
   ensureDir,
   sanitizeFilename,
   truncate,
   separator,
-} from "./utils.js";
+} from "./utils";
 
 /**
  * Execute a single test case

@@ -4,14 +4,14 @@
 
 import * as fs from "fs/promises";
 import chalk from "chalk";
-import { TestResult, TestReport, TestSummary } from "./types.js";
+import { TestResult, TestReport, TestSummary } from "./types";
 import {
   formatDuration,
   formatSuccessRate,
   getStatusIcon,
   separator,
   setGitHubOutput,
-} from "./utils.js";
+} from "./utils";
 
 /**
  * Generate test results report

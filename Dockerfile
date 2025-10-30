@@ -1,28 +1,24 @@
 # Stage 1: Build stage
 FROM node:20-slim AS builder
 
-# Set metadata
-LABEL maintainer="MonkeyTest Contributors"
-LABEL description="AI-powered browser testing with Browser Use"
-LABEL version="1.0.0"
-
 # Set working directory
 WORKDIR /app
 
 # Install pnpm
-RUN npm install -g pnpm@9.10.0
+RUN npm install -g pnpm@8.15.0
 
 # Copy package files for dependency installation
 COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies
+# Install all dependencies (including devDependencies for building)
 RUN pnpm install --frozen-lockfile
 
-# Copy source code
+# Copy source code and configuration
 COPY src/ ./src/
 COPY tsconfig.json ./
+COPY tsup.config.ts ./
 
-# Build TypeScript to JavaScript
+# Build with tsup (bundles TypeScript to JavaScript)
 RUN pnpm run build
 
 # Stage 2: Production stage
@@ -37,7 +33,7 @@ LABEL version="1.0.0"
 WORKDIR /action
 
 # Install pnpm
-RUN npm install -g pnpm@9.10.0
+RUN npm install -g pnpm@8.15.0
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
@@ -48,5 +44,8 @@ RUN pnpm install --frozen-lockfile --prod
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
 
-# Set the entrypoint
+# Ensure the entrypoint is executable
+RUN chmod +x /action/dist/index.js
+
+# Set the entrypoint to run the compiled JavaScript
 ENTRYPOINT ["node", "/action/dist/index.js"]
