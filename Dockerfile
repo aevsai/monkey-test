@@ -5,7 +5,7 @@ FROM node:20-slim AS builder
 WORKDIR /app
 
 # Install pnpm
-RUN npm install -g pnpm@8.15.0
+RUN npm install -g pnpm@9.10.0
 
 # Copy package files for dependency installation
 COPY package.json pnpm-lock.yaml ./
@@ -33,7 +33,7 @@ LABEL version="1.0.0"
 WORKDIR /action
 
 # Install pnpm
-RUN npm install -g pnpm@8.15.0
+RUN npm install -g pnpm@9.10.0
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
