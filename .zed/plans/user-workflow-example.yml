@@ -1,0 +1,166 @@
+name: Diff-Based Test Generation
+
+on:
+  pull_request:
+    branches: [main, staging]
+  workflow_dispatch:
+    inputs:
+      from_commit:
+        description: "Commit reference to compare from"
+        required: false
+        default: "HEAD~1"
+      env_url:
+        description: "Environment URL"
+        required: false
+        default: "http://bloodgpt.tech"
+
+jobs:
+  # Job 1: Preview (generate only)
+  generate-only:
+    name: Preview Generated Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate tests preview
+        uses: aevsai/monkey-test@v0.8
+        with:
+          from-commit: ${{ github.event.pull_request.base.sha }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          base-url: ${{ inputs.env_url || 'http://bloodgpt.tech' }}
+          generate-only: true
+          test-generation-model: gpt-4o
+          max-test-cases: 10
+
+      - name: Upload preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-tests-${{ github.run_id }}
+          path: .monkey-test-generated/
+          retention-days: 7
+
+      - name: List generated tests
+        run: |
+          echo "## 🔍 Generated Test Preview" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Target URL:** ${{ inputs.env_url || 'http://bloodgpt.tech' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -d ".monkey-test-generated" ]; then
+            for file in .monkey-test-generated/*.md; do
+              if [ -f "$file" ]; then
+                echo "### $(basename "$file")" >> $GITHUB_STEP_SUMMARY
+                echo '```markdown' >> $GITHUB_STEP_SUMMARY
+                head -n 30 "$file" >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          else
+            echo "No tests generated" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # Job 2: Full execution (generate + run)
+  generate-and-test:
+    name: Generate & Run Tests from Diff
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine base commit
+        id: base-commit
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "from_commit=${{ github.event.pull_request.base.sha }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.from_commit }}" ]; then
+            echo "from_commit=${{ inputs.from_commit }}" >> $GITHUB_OUTPUT
+          else
+            echo "from_commit=HEAD~1" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate and run tests
+        uses: aevsai/monkey-test@v0.8
+        with:
+          from-commit: ${{ steps.base-commit.outputs.from_commit }}
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          api-key: ${{ secrets.BROWSER_USE_API_KEY }}
+          base-url: ${{ inputs.env_url || 'http://bloodgpt.tech' }}
+          test-generation-model: gpt-4o
+          max-test-cases: 10
+          max-concurrency: 3
+          max-diff-size: 100000
+          timeout: 300
+          fail-on-error: true
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts-${{ github.run_id }}
+          path: |
+            artifacts/
+            .monkey-test-generated/
+          retention-days: 30
+
+      - name: Upload generated test cases
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-tests-${{ github.run_id }}
+          path: .monkey-test-generated/
+          retention-days: 30
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_id }}
+          path: |
+            artifacts/*.json
+            artifacts/*.md
+            browser-use-outputs/
+          retention-days: 30
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const artifactsDir = './artifacts';
+            if (!fs.existsSync(artifactsDir)) {
+              console.log('No artifacts directory found');
+              return;
+            }
+
+            const files = fs.readdirSync(artifactsDir);
+            const mdFiles = files.filter(f => f.startsWith('test-results-') && f.endsWith('.md'));
+
+            if (mdFiles.length === 0) {
+              console.log('No test results found');
+              return;
+            }
+
+            mdFiles.sort();
+            const latestFile = mdFiles[mdFiles.length - 1];
+            const content = fs.readFileSync(path.join(artifactsDir, latestFile), 'utf-8');
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🐒 Monkey Test Results\n\n**Target URL:** ${{ inputs.env_url || 'http://bloodgpt.tech' }}\n\n${content}\n\n---\n*Generated from commit diff: \`${{ steps.base-commit.outputs.from_commit }}\` → \`${{ github.sha }}\`*`
+            });

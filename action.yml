@@ -62,35 +62,71 @@ inputs:
 outputs:
   results:
     description: "JSON string containing detailed test results"
+    value: ${{ steps.run-tests.outputs.results }}
   total-tests:
     description: "Total number of tests executed"
+    value: ${{ steps.run-tests.outputs.total-tests }}
   passed-tests:
     description: "Number of tests that passed"
+    value: ${{ steps.run-tests.outputs.passed-tests }}
   failed-tests:
     description: "Number of tests that failed"
+    value: ${{ steps.run-tests.outputs.failed-tests }}
   error-tests:
     description: "Number of tests that encountered errors"
+    value: ${{ steps.run-tests.outputs.error-tests }}
   success-rate:
     description: "Test success rate percentage"
+    value: ${{ steps.run-tests.outputs.success-rate }}
   results-file:
     description: "Path to detailed test results JSON file"
+    value: ${{ steps.run-tests.outputs.results-file }}
 
 runs:
-  using: "docker"
-  image: "Dockerfile"
-  env:
-    BROWSER_USE_API_KEY: ${{ inputs.api-key }}
-    TEST_DIRECTORY: ${{ inputs.test-directory }}
-    LLM_MODEL: ${{ inputs.llm-model }}
-    FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
-    TIMEOUT: ${{ inputs.timeout }}
-    SAVE_OUTPUTS: ${{ inputs.save-outputs }}
-    BASE_URL: ${{ inputs.base-url }}
-    FROM_COMMIT: ${{ inputs.from-commit }}
-    OPENAI_API_KEY: ${{ inputs.openai-api-key }}
-    TEST_GENERATION_MODEL: ${{ inputs.test-generation-model }}
-    GENERATE_ONLY: ${{ inputs.generate-only }}
-    MAX_TEST_CASES: ${{ inputs.max-test-cases }}
-    MAX_DIFF_SIZE: ${{ inputs.max-diff-size }}
-    MAX_CONCURRENCY: ${{ inputs.max-concurrency }}
-    ARTIFACT_DIR: "artifacts"
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: 9
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        pnpm install --frozen-lockfile --prod
+
+    - name: Build application
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        if [ ! -d "dist" ]; then
+          pnpm install --frozen-lockfile
+          pnpm run build
+        fi
+
+    - name: Run tests
+      shell: bash
+      env:
+        BROWSER_USE_API_KEY: ${{ inputs.api-key }}
+        TEST_DIRECTORY: ${{ inputs.test-directory }}
+        LLM_MODEL: ${{ inputs.llm-model }}
+        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+        TIMEOUT: ${{ inputs.timeout }}
+        SAVE_OUTPUTS: ${{ inputs.save-outputs }}
+        BASE_URL: ${{ inputs.base-url }}
+        FROM_COMMIT: ${{ inputs.from-commit }}
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+        TEST_GENERATION_MODEL: ${{ inputs.test-generation-model }}
+        GENERATE_ONLY: ${{ inputs.generate-only }}
+        MAX_TEST_CASES: ${{ inputs.max-test-cases }}
+        MAX_DIFF_SIZE: ${{ inputs.max-diff-size }}
+        MAX_CONCURRENCY: ${{ inputs.max-concurrency }}
+        ARTIFACT_DIR: "artifacts"
+      run: |
+        node ${{ github.action_path }}/dist/index.js

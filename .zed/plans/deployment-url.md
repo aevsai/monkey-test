@@ -58,9 +58,26 @@ Add ability to specify a URL where code is deployed, which will be used during t
 - Make it optional with sensible defaults
 - Consider storing in test case metadata for traceability
 
-## Docker Fix for Git Operations
-When running in GitHub Actions with Docker:
-- Git must be installed in the container (`apt-get install git`)
-- Working directory must be `/github/workspace` (where repo is mounted)
-- Application files installed at `/app/dist` to avoid conflicts
-- GitHub Actions automatically mounts workspace with full git history if `fetch-depth: 0` is set
+## GitHub Actions Implementation Decision
+
+### Initial Approach: Docker Action
+- Attempted Docker-based action
+- Issues encountered:
+  - Complex workspace mounting (`/github/workspace`)
+  - Node modules path resolution problems
+  - Git installation and configuration complexity
+  - Slower startup time
+
+### Final Approach: Composite Action ✅
+- Converted to composite action (standard for Node.js actions)
+- Benefits:
+  - Uses native GitHub Actions runners (git already available)
+  - No Docker overhead or mounting issues
+  - Simpler path resolution
+  - Faster execution
+  - Standard practice for Node.js-based GitHub Actions
+- Implementation:
+  - Uses `actions/setup-node@v4` for Node.js
+  - Uses `pnpm/action-setup@v2` for package manager
+  - Runs directly on the runner in the checked-out repository
+  - No workspace mounting or path translation needed
