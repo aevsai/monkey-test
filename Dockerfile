@@ -29,8 +29,11 @@ LABEL maintainer="MonkeyTest Contributors"
 LABEL description="AI-powered browser testing with Browser Use"
 LABEL version="1.0.0"
 
-# Set working directory
-WORKDIR /action
+# Install git (required for git diff functionality)
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+
+# Set working directory for GitHub Actions (workspace is mounted here)
+WORKDIR /github/workspace
 
 # Install pnpm
 RUN npm install -g pnpm@9.10.0
@@ -41,11 +44,12 @@ COPY package.json pnpm-lock.yaml ./
 # Install only production dependencies
 RUN pnpm install --frozen-lockfile --prod
 
-# Copy built application from builder stage
-COPY --from=builder /app/dist ./dist
+# Copy built application from builder stage to a fixed location
+COPY --from=builder /app/dist /app/dist
 
 # Ensure the entrypoint is executable
-RUN chmod +x /action/dist/index.js
+RUN chmod +x /app/dist/index.js
 
-# Set the entrypoint to run the compiled JavaScript
-ENTRYPOINT ["node", "/action/dist/index.js"]
+# Set the entrypoint to run the compiled JavaScript from the fixed location
+# The working directory will be /github/workspace where the repository is mounted
+ENTRYPOINT ["node", "/app/dist/index.js"]

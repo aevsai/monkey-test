@@ -46,12 +46,21 @@ Add ability to specify a URL where code is deployed, which will be used during t
   - [x] Add baseUrl to Config type
   - [x] Add baseUrl to TestCase type if needed
   
-- [ ] Testing
-  - [ ] Verify URL is properly passed through pipeline
-  - [ ] Test with and without URL specified
+- [x] Testing
+  - [x] Fixed Docker container to install git for diff functionality
+  - [x] Fixed Docker working directory for GitHub Actions workspace
+  - [x] Verify URL is properly passed through pipeline
+  - [x] Test with and without URL specified
   - [ ] Test URL validation if implemented
 
 ## Notes
 - Prefer `BASE_URL` as environment variable name (common convention)
 - Make it optional with sensible defaults
 - Consider storing in test case metadata for traceability
+
+## Docker Fix for Git Operations
+When running in GitHub Actions with Docker:
+- Git must be installed in the container (`apt-get install git`)
+- Working directory must be `/github/workspace` (where repo is mounted)
+- Application files installed at `/app/dist` to avoid conflicts
+- GitHub Actions automatically mounts workspace with full git history if `fetch-depth: 0` is set
