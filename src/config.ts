@@ -15,6 +15,7 @@ export function loadConfig(): Config {
   const timeout = parseInt(process.env.TIMEOUT || "300", 10);
   const saveOutputs = process.env.SAVE_OUTPUTS !== "false";
   const outputDir = process.env.OUTPUT_DIR || "browser-use-outputs";
+  const maxConcurrency = parseInt(process.env.MAX_CONCURRENCY || "3", 10);
 
   return {
     apiKey,
@@ -24,6 +25,7 @@ export function loadConfig(): Config {
     timeout,
     saveOutputs,
     outputDir,
+    maxConcurrency,
   };
 }
 
@@ -45,6 +47,13 @@ export function validateConfig(config: Config): {
     return {
       valid: false,
       error: "TIMEOUT must be a positive number",
+    };
+  }
+
+  if (config.maxConcurrency <= 0) {
+    return {
+      valid: false,
+      error: "MAX_CONCURRENCY must be a positive number",
     };
   }
 

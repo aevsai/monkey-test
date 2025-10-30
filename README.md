@@ -163,6 +163,7 @@ Your test instructions in plain English...
 | `SAVE_OUTPUTS` | `true` | Save output files |
 | `FAIL_ON_ERROR` | `true` | Exit with error code on test failure |
 | `OUTPUT_DIR` | `browser-use-outputs` | Directory for output files |
+| `MAX_CONCURRENCY` | `3` | Maximum number of concurrent test sessions |
 
 ## Scripts
 

@@ -55,6 +55,7 @@ export interface Config {
   timeout: number;
   saveOutputs: boolean;
   outputDir: string;
+  maxConcurrency: number;
 }
 
 // SDK types are imported from browser-use-sdk

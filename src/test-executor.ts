@@ -14,10 +14,11 @@ import {
 } from "./utils";
 
 /**
- * Execute a single test case
+ * Execute a single test case with a dedicated session
  */
 export async function executeTest(
   client: BrowserUseClient,
+  session: any,
   testCase: TestCase,
   filePath: string,
   config: Config
@@ -41,11 +42,12 @@ export async function executeTest(
   const startTime = Date.now();
 
   try {
-    // Create task
-    console.log(`🚀 Creating Browser Use task...`);
+    // Create task in the provided session
+    console.log(`🚀 Creating Browser Use task in session ${session.id}...`);
     console.log(`📋 Task instructions: ${truncate(testCase.task, 200)}...`);
 
     const taskParams: any = {
+      sessionId: session.id,
       task: testCase.task,
     };
 

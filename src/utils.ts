@@ -111,3 +111,47 @@ export function truncate(str: string, maxLength: number): string {
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+/**
+ * Run async tasks with concurrency limit
+ * Similar to p-limit but simplified for our use case
+ */
+export async function runWithConcurrency<T, R>(
+  items: T[],
+  maxConcurrency: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  const executing: Promise<void>[] = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const currentIndex = i;
+    const item = items[currentIndex];
+    
+    if (item === undefined) {
+      throw new Error(`Item at index ${currentIndex} is undefined`);
+    }
+    
+    const promise = (async () => {
+      results[currentIndex] = await fn(item, currentIndex);
+    })().then(() => {
+      // Remove this promise from executing array when done
+      const index = executing.indexOf(promise);
+      if (index > -1) {
+        executing.splice(index, 1);
+      }
+    });
+    
+    executing.push(promise);
+    
+    // When we reach max concurrency, wait for one to finish
+    if (executing.length >= maxConcurrency) {
+      await Promise.race(executing);
+    }
+  }
+  
+  // Wait for all remaining tasks to complete
+  await Promise.all(executing);
+  
+  return results;
+}
