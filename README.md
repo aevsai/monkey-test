@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# monkey-test
-=======
 # MonkeyTest 🐵🧪
 
 AI-powered browser testing with Browser Use - A reusable Docker-based GitHub Action for natural language browser automation.
@@ -98,14 +95,15 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
+      - uses:
+ actions/checkout@v4
+
       - name: Run Browser Tests
-        uses: yourusername/monkeytest@v1  # Or use ./  for local action
+        uses: yourusername/monkey-test@v1  # Or use ./  for local action
         with:
           api-key: ${{ secrets.BROWSER_USE_API_KEY }}
           test-directory: tests
-      
+
       - name: Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -291,7 +289,7 @@ jobs:
           api-key: ${{ secrets.BROWSER_USE_API_KEY }}
           test-directory: tests/monitoring
           fail-on-error: false
-      
+
       - name: Send Alert
         if: failure()
         # Send notification via email, Slack, etc.
@@ -335,6 +333,22 @@ jobs:
 - Ensure proper markdown formatting
 - Check file encoding is UTF-8
 
+### Action Not Found Error
+
+If you see "Can't find 'action.yml'" or similar:
+
+1. **For local testing** (within this repo): Use `uses: ./` and ensure you've checked out the code first
+2. **For external use**: Create a release tag (e.g., `v1`) and use `uses: aevsai/monkey-test@v1`
+3. **Verify files**: Ensure `action.yml` is at the repository root
+4. **Check branch**: Make sure you're referencing the correct branch/tag
+
+### Docker Build Failures
+
+- Test locally: `docker build -t monkeytest .`
+- Check Dockerfile syntax
+- Verify all file paths in COPY commands exist
+- Ensure requirements.txt is valid
+
 ## Contributing
 
 Contributions are welcome! Feel free to:
@@ -345,6 +359,8 @@ Contributions are welcome! Feel free to:
 - Improve documentation
 - Share example test cases
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
 ## Browser Use Resources
 
 - [Browser Use Documentation](https://docs.cloud.browser-use.com)
@@ -353,7 +369,7 @@ Contributions are welcome! Feel free to:
 
 ## License
 
-MIT License - See LICENSE file for details
+MIT License - See [LICENSE](LICENSE) file for details
 
 ## Technical Details
 
@@ -369,7 +385,7 @@ This action runs in a **Docker container** with:
 
 ```yaml
 # .github/workflows/tests.yml
-- uses: yourusername/monkeytest@v1
+- uses: aevsai/monkey-test@v1
   with:
     api-key: ${{ secrets.BROWSER_USE_API_KEY }}
     test-directory: tests
@@ -390,12 +406,11 @@ This action runs in a **Docker container** with:
 - 📖 [Getting Started Guide](GETTING_STARTED.md)
 - 📐 [Architecture Documentation](ARCHITECTURE.md)
 - 🐳 [Docker Implementation](DOCKER_IMPLEMENTATION.md)
-- 💬 [GitHub Discussions](https://github.com/yourusername/monkeytest/discussions)
-- 🐛 [Report Issues](https://github.com/yourusername/monkeytest/issues)
+- 💬 [GitHub Discussions](https://github.com/aevsai/monkey-test/discussions)
+- 🐛 [Report Issues](https://github.com/aevsai/monkey-test/issues)
 
 ---
 
 **Happy Testing!** 🐵🧪
 
 Made with ❤️ using [Browser Use](https://browser-use.com)
->>>>>>> 7bca9c3 (init)
