@@ -56,6 +56,14 @@ export interface Config {
   saveOutputs: boolean;
   outputDir: string;
   maxConcurrency: number;
+  // Diff-based test generation options
+  fromCommit?: string;
+  openaiApiKey?: string;
+  testGenerationModel?: string;
+  generateOnly?: boolean;
+  artifactDir?: string;
+  maxDiffSize?: number;
+  maxTestCases?: number;
 }
 
 // SDK types are imported from browser-use-sdk

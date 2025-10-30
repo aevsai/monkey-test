@@ -11,6 +11,9 @@ import { executeTest } from "./test-executor";
 import { generateReport, printSummary, saveResults, printConfig, printHeader } from "./reporter";
 import { exists, runWithConcurrency } from "./utils";
 import { TestResult } from "./types";
+import { getGitDiff, getCommitInfo } from "./git-diff";
+import { generateTestCasesFromDiff, saveArtifacts } from "./test-generator";
+import { publishToGitHubActions, exportTestStatistics, addAnnotation } from "./github-actions";
 
 /**
  * Main test runner class
@@ -26,6 +29,153 @@ class BrowserUseTestRunner {
   }
 
   /**
+   * Print help message
+   */
+  private printHelp(): void {
+    console.log(`
+🐒 Monkey Test - Browser Use Test Runner
+
+USAGE:
+  monkey-test [OPTIONS]
+
+OPTIONS:
+  --from-commit <ref>   Generate tests from git diff (commit reference)
+  --generate-only       Only generate tests, don't execute them
+  --help                Show this help message
+
+ENVIRONMENT VARIABLES:
+  BROWSER_USE_API_KEY        API key for Browser Use (required for standard mode)
+  OPENAI_API_KEY             API key for OpenAI (required for --from-commit mode)
+  TEST_DIRECTORY             Directory containing test files (default: tests)
+  LLM_MODEL                  LLM model for test execution (default: browser-use-llm)
+  TEST_GENERATION_MODEL      LLM model for test generation (default: gpt-4-turbo-preview)
+  TIMEOUT                    Test timeout in seconds (default: 300)
+  MAX_CONCURRENCY            Max concurrent tests (default: 3)
+  MAX_DIFF_SIZE              Max diff size in characters (default: 100000)
+  MAX_TEST_CASES             Max test cases to generate (default: 10)
+  ARTIFACT_DIR               Directory for artifacts (default: artifacts)
+  OUTPUT_DIR                 Directory for test outputs (default: browser-use-outputs)
+  FAIL_ON_ERROR              Exit with error on test failure (default: true)
+  SAVE_OUTPUTS               Save test outputs (default: true)
+
+EXAMPLES:
+  # Run existing tests
+  monkey-test
+
+  # Generate tests from git diff
+  monkey-test --from-commit main
+
+  # Generate tests only (don't execute)
+  monkey-test --from-commit HEAD~3 --generate-only
+`);
+  }
+
+  /**
+   * Run diff-based test generation and execution
+   */
+  private async runDiffBasedTests(): Promise<void> {
+    if (!this.config.fromCommit) {
+      throw new Error("fromCommit not specified");
+    }
+
+    console.log(`\n🔍 Generating tests from git diff...`);
+    console.log(`📍 From commit: ${this.config.fromCommit}`);
+
+    // Get commit info
+    let commitInfo;
+    try {
+      commitInfo = await getCommitInfo(this.config.fromCommit);
+      console.log(`📝 Commit: ${commitInfo.hash} by ${commitInfo.author}`);
+      console.log(`📅 Date: ${commitInfo.date}`);
+      console.log(`💬 Message: ${commitInfo.message}`);
+    } catch (error) {
+      console.error(`❌ Failed to get commit info: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    // Get git diff
+    console.log(`\n📊 Getting git diff...`);
+    const diffResult = await getGitDiff({
+      fromCommit: this.config.fromCommit,
+      maxDiffSize: this.config.maxDiffSize,
+    });
+
+    console.log(`✅ Diff retrieved:`);
+    console.log(`   Files changed: ${diffResult.filesChanged.length}`);
+    console.log(`   Insertions: +${diffResult.insertions}`);
+    console.log(`   Deletions: -${diffResult.deletions}`);
+    console.log(`   From: ${diffResult.fromCommit}`);
+    console.log(`   To: ${diffResult.toCommit}`);
+
+    // Generate test cases using LLM
+    console.log(`\n🤖 Generating test cases using LLM...`);
+    const generationResult = await generateTestCasesFromDiff(diffResult, {
+      apiKey: this.config.openaiApiKey!,
+      model: this.config.testGenerationModel,
+      maxTestCases: this.config.maxTestCases,
+      outputDir: '.monkey-test-generated',
+    });
+
+    console.log(`✅ Generated ${generationResult.testCases.length} test case(s)`);
+    generationResult.testCases.forEach((tc, i) => {
+      console.log(`   ${i + 1}. ${tc.name}`);
+    });
+
+    // Save artifacts
+    console.log(`\n💾 Saving artifacts...`);
+    await saveArtifacts(diffResult, generationResult.rawResponse, this.config.artifactDir!);
+
+    // If generate-only mode, stop here
+    if (this.config.generateOnly) {
+      console.log(`\n✅ Test generation complete (generate-only mode)`);
+      console.log(`📁 Generated test files: ${generationResult.testFilePaths.length}`);
+      generationResult.testFilePaths.forEach(path => {
+        console.log(`   - ${path}`);
+      });
+      return;
+    }
+
+    // Execute generated tests
+    console.log(`\n🧪 Executing generated tests...`);
+    
+    // Override test directory to use generated tests
+    this.config.testDirectory = '.monkey-test-generated';
+
+    // Initialize client for test execution
+    this.initializeClient();
+
+    // Run the generated tests
+    await this.runAllTests();
+
+    // Generate and save report
+    const report = generateReport(this.results);
+    printSummary(report);
+    await saveResults(report);
+
+    // Publish to GitHub Actions if running in CI
+    await publishToGitHubActions(report, {
+      artifactDir: this.config.artifactDir,
+      fromCommit: diffResult.fromCommit,
+      toCommit: diffResult.toCommit,
+      diffStats: {
+        filesChanged: diffResult.filesChanged.length,
+        insertions: diffResult.insertions,
+        deletions: diffResult.deletions,
+      },
+    });
+
+    // Export statistics
+    exportTestStatistics(report);
+
+    // Add annotations for failed tests
+    const failedTests = this.results.filter(r => r.status === 'failed' || r.status === 'error');
+    if (failedTests.length > 0) {
+      addAnnotation('error', `${failedTests.length} test(s) failed`, {
+        title: 'Test Failures',
+      });
+    }
+  }
+
+  /**
    * Validate configuration
    */
   private async validateSetup(): Promise<boolean> {
@@ -35,10 +185,13 @@ class BrowserUseTestRunner {
       return false;
     }
 
-    const testDirExists = await exists(this.config.testDirectory);
-    if (!testDirExists) {
-      console.error(`❌ Error: Test directory '${this.config.testDirectory}' does not exist`);
-      return false;
+    // Skip test directory check if using diff-based generation
+    if (!this.config.fromCommit) {
+      const testDirExists = await exists(this.config.testDirectory);
+      if (!testDirExists) {
+        console.error(`❌ Error: Test directory '${this.config.testDirectory}' does not exist`);
+        return false;
+      }
     }
 
     return true;
@@ -199,6 +352,12 @@ class BrowserUseTestRunner {
    * Main entry point
    */
   async run(): Promise<number> {
+    // Check for help flag
+    if (process.argv.includes('--help') || process.argv.includes('-h')) {
+      this.printHelp();
+      return 0;
+    }
+
     printHeader();
 
     // Setup graceful shutdown handler
@@ -217,6 +376,21 @@ class BrowserUseTestRunner {
     }
 
     try {
+      // Check if using diff-based test generation
+      if (this.config.fromCommit) {
+        await this.runDiffBasedTests();
+
+        // If generate-only, return success
+        if (this.config.generateOnly) {
+          return 0;
+        }
+
+        // Otherwise, get exit code from results
+        const report = generateReport(this.results);
+        return this.getExitCode(report);
+      }
+
+      // Standard mode: run existing tests
       // Initialize client
       this.initializeClient();
 

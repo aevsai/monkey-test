@@ -1,0 +1,198 @@
+name: Diff-Based Test Generation
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      from_commit:
+        description: 'Commit reference to compare from'
+        required: false
+        default: 'HEAD~1'
+
+jobs:
+  generate-and-test:
+    name: Generate & Run Tests from Diff
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for git diff
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Determine base commit
+        id: base-commit
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "from_commit=${{ github.event.pull_request.base.sha }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.from_commit }}" ]; then
+            echo "from_commit=${{ inputs.from_commit }}" >> $GITHUB_OUTPUT
+          else
+            echo "from_commit=HEAD~1" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate and run tests
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          BROWSER_USE_API_KEY: ${{ secrets.BROWSER_USE_API_KEY }}
+          FROM_COMMIT: ${{ steps.base-commit.outputs.from_commit }}
+          TEST_GENERATION_MODEL: gpt-4-turbo-preview
+          LLM_MODEL: browser-use-llm
+          MAX_CONCURRENCY: 3
+          MAX_TEST_CASES: 10
+          MAX_DIFF_SIZE: 100000
+          ARTIFACT_DIR: ./artifacts
+          TIMEOUT: 300
+          FAIL_ON_ERROR: true
+        run: |
+          node dist/index.js --from-commit "$FROM_COMMIT"
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts-${{ github.run_id }}
+          path: |
+            artifacts/
+            .monkey-test-generated/
+          retention-days: 30
+
+      - name: Upload generated test cases
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-tests-${{ github.run_id }}
+          path: .monkey-test-generated/
+          retention-days: 30
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_id }}
+          path: |
+            artifacts/*.json
+            artifacts/*.md
+            browser-use-outputs/
+          retention-days: 30
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Find the latest test results markdown file
+            const artifactsDir = './artifacts';
+            if (!fs.existsSync(artifactsDir)) {
+              console.log('No artifacts directory found');
+              return;
+            }
+
+            const files = fs.readdirSync(artifactsDir);
+            const mdFiles = files.filter(f => f.startsWith('test-results-') && f.endsWith('.md'));
+
+            if (mdFiles.length === 0) {
+              console.log('No test results found');
+              return;
+            }
+
+            // Get the latest file
+            mdFiles.sort();
+            const latestFile = mdFiles[mdFiles.length - 1];
+            const content = fs.readFileSync(path.join(artifactsDir, latestFile), 'utf-8');
+
+            // Post comment to PR
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🐒 Monkey Test Results\n\n${content}\n\n---\n*Generated from commit diff: \`${{ steps.base-commit.outputs.from_commit }}\` → \`${{ github.sha }}\`*`
+            });
+
+  generate-only:
+    name: Generate Tests Only (Preview)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Generate tests (no execution)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          FROM_COMMIT: ${{ github.event.pull_request.base.sha }}
+          TEST_GENERATION_MODEL: gpt-4-turbo-preview
+          MAX_TEST_CASES: 10
+          ARTIFACT_DIR: ./artifacts
+        run: |
+          node dist/index.js --from-commit "$FROM_COMMIT" --generate-only
+
+      - name: Upload generated tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-generated-tests-${{ github.run_id }}
+          path: .monkey-test-generated/
+          retention-days: 7
+
+      - name: List generated tests
+        run: |
+          echo "## Generated Test Cases" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -d ".monkey-test-generated" ]; then
+            for file in .monkey-test-generated/*.md; do
+              if [ -f "$file" ]; then
+                echo "### $(basename "$file")" >> $GITHUB_STEP_SUMMARY
+                echo '```markdown' >> $GITHUB_STEP_SUMMARY
+                head -n 20 "$file" >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          else
+            echo "No tests generated" >> $GITHUB_STEP_SUMMARY
+          fi

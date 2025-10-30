@@ -20,6 +20,8 @@ MonkeyTest is a TypeScript-based test runner that lets you write browser tests i
 - 🎯 **Flexible**: Support for multiple LLM models and custom configurations
 - ⚡ **Fast**: Built with TypeScript and modern async/await patterns
 - 🔧 **Type-Safe**: Full TypeScript support with strict typing
+- 🔍 **Git Diff Testing**: Auto-generate tests from code changes using LLM analysis
+- 🚀 **GitHub Actions Integration**: Automated test generation and execution in CI/CD
 
 ## Quick Start
 
@@ -46,6 +48,252 @@ pnpm build
 ### Configuration
 
 Set your Browser Use API key as an environment variable:
+
+```bash
+export BROWSER_USE_API_KEY="your-api-key-here"
+```
+
+## Usage Modes
+
+MonkeyTest supports two modes of operation:
+
+### 1. Standard Mode - Run Existing Tests
+
+Run pre-written markdown test cases from your test directory:
+
+```bash
+# Run all tests in the tests directory
+monkey-test
+
+# Or use npm/pnpm scripts
+pnpm test
+```
+
+### 2. Diff-Based Test Generation (NEW!)
+
+Automatically generate and run tests based on git commit changes:
+
+```bash
+# Generate tests from changes since a specific commit
+monkey-test --from-commit main
+
+# Generate tests from last 3 commits
+monkey-test --from-commit HEAD~3
+
+# Generate tests only (don't execute them)
+monkey-test --from-commit main --generate-only
+```
+
+#### How Diff-Based Testing Works
+
+1. **Get Git Diff**: Compares your current code with the specified commit
+2. **LLM Analysis**: Sends the diff to GPT-4 to analyze changes
+3. **Test Generation**: LLM generates browser test cases in XML format
+4. **Convert to Markdown**: Converts generated tests to markdown format
+5. **Execute Tests**: Runs the generated tests using Browser Use
+6. **Save Artifacts**: Saves diff, LLM response, and test results
+7. **GitHub Actions**: Displays results in PR comments and workflow summaries
+
+#### Required Environment Variables for Diff Mode
+
+```bash
+export OPENAI_API_KEY="your-openai-api-key"
+export BROWSER_USE_API_KEY="your-browser-use-api-key"
+```
+
+#### Optional Configuration
+
+```bash
+# LLM model for test generation (default: gpt-4-turbo-preview)
+export TEST_GENERATION_MODEL="gpt-4-turbo-preview"
+
+# Max test cases to generate (default: 10)
+export MAX_TEST_CASES=10
+
+# Max diff size in characters (default: 100000)
+export MAX_DIFF_SIZE=100000
+
+# Artifact directory (default: artifacts)
+export ARTIFACT_DIR="./artifacts"
+
+# Max concurrent tests (default: 3)
+export MAX_CONCURRENCY=3
+
+# Test timeout in seconds (default: 300)
+export TIMEOUT=300
+```
+
+## GitHub Actions Integration
+
+MonkeyTest includes built-in GitHub Actions support for automated testing on PRs and commits.
+
+### Setup GitHub Actions Workflow
+
+1. Add secrets to your repository:
+   - `BROWSER_USE_API_KEY`: Your Browser Use API key
+   - `OPENAI_API_KEY`: Your OpenAI API key
+
+2. Use the provided workflow file at `.github/workflows/diff-test.yml`
+
+3. The workflow will automatically:
+   - Generate tests from PR changes
+   - Execute the tests
+   - Upload artifacts (diffs, generated tests, results)
+   - Comment on PRs with test results
+   - Display summary in workflow page
+
+### Workflow Features
+
+- **Pull Request Testing**: Automatically tests changes in PRs
+- **Artifact Storage**: Saves all generated tests and results for 30 days
+- **PR Comments**: Posts test results directly on pull requests
+- **Test Preview**: Optional job to generate tests without executing
+- **Manual Trigger**: Run workflow manually with custom commit reference
+
+### Example Workflow Output
+
+The GitHub Actions workflow provides:
+
+1. **Step Summary**: Formatted markdown table with test results
+2. **Artifacts**: 
+   - Generated test cases (`.md` files)
+   - Git diff used for generation
+   - Raw LLM response
+   - Test execution results (JSON + Markdown)
+   - Screenshots and outputs
+3. **PR Comments**: Automatic comment with pass/fail status
+4. **Annotations**: Error annotations for failed tests
+
+## Command Line Options
+
+```bash
+monkey-test [OPTIONS]
+
+OPTIONS:
+  --from-commit <ref>   Generate tests from git diff (commit reference)
+  --generate-only       Only generate tests, don't execute them
+  --help                Show help message
+
+EXAMPLES:
+  # Standard mode
+  monkey-test
+
+  # Generate from main branch
+  monkey-test --from-commit main
+
+  # Generate from specific commit
+  monkey-test --from-commit abc123
+
+  # Preview generated tests only
+  monkey-test --from-commit HEAD~1 --generate-only
+```
+
+## Environment Variables Reference
+
+### Required (Standard Mode)
+- `BROWSER_USE_API_KEY`: API key for Browser Use Cloud
+
+### Required (Diff Mode)
+- `BROWSER_USE_API_KEY`: API key for Browser Use Cloud
+- `OPENAI_API_KEY`: API key for OpenAI
+
+### Optional
+- `TEST_DIRECTORY`: Test files directory (default: `tests`)
+- `LLM_MODEL`: Model for test execution (default: `browser-use-llm`)
+- `TEST_GENERATION_MODEL`: Model for test generation (default: `gpt-4-turbo-preview`)
+- `TIMEOUT`: Test timeout in seconds (default: `300`)
+- `MAX_CONCURRENCY`: Max concurrent tests (default: `3`)
+- `MAX_TEST_CASES`: Max tests to generate (default: `10`)
+- `MAX_DIFF_SIZE`: Max diff size in chars (default: `100000`)
+- `ARTIFACT_DIR`: Artifact output directory (default: `artifacts`)
+- `OUTPUT_DIR`: Test output directory (default: `browser-use-outputs`)
+- `FAIL_ON_ERROR`: Exit with error on failure (default: `true`)
+- `SAVE_OUTPUTS`: Save test outputs (default: `true`)
+
+## Examples
+
+### Example 1: Test PR Changes
+
+```bash
+# Get the base branch of your PR
+BASE_COMMIT=$(git merge-base HEAD origin/main)
+
+# Generate and run tests
+OPENAI_API_KEY="sk-..." BROWSER_USE_API_KEY="bu-..." \
+  monkey-test --from-commit $BASE_COMMIT
+```
+
+### Example 2: Preview Generated Tests
+
+```bash
+# Generate tests without executing
+OPENAI_API_KEY="sk-..." \
+  monkey-test --from-commit main --generate-only
+
+# View generated tests
+ls -la .monkey-test-generated/
+```
+
+### Example 3: Custom Test Generation
+
+```bash
+# Generate more tests with larger diff size
+MAX_TEST_CASES=20 MAX_DIFF_SIZE=200000 \
+  OPENAI_API_KEY="sk-..." BROWSER_USE_API_KEY="bu-..." \
+  monkey-test --from-commit HEAD~5
+```
+
+## Artifacts Structure
+
+When using diff-based testing, the following artifacts are created:
+
+```
+artifacts/
+├── diff-2024-01-15T10-30-00-000Z.txt          # Git diff
+├── llm-response-2024-01-15T10-30-00-000Z.txt  # Raw LLM response
+├── test-results-2024-01-15T10-30-00-000Z.json # Test results (JSON)
+└── test-results-2024-01-15T10-30-00-000Z.md   # Test results (Markdown)
+
+.monkey-test-generated/
+├── 1-test-login-functionality.md
+├── 2-test-dashboard-rendering.md
+└── 3-test-api-integration.md
+
+browser-use-outputs/
+├── test-login-functionality/
+│   ├── screenshot-1.png
+│   └── output.txt
+└── test-dashboard-rendering/
+    └── screenshot-1.png
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Error: "OPENAI_API_KEY environment variable is required"**
+- Set your OpenAI API key: `export OPENAI_API_KEY="sk-..."`
+
+**Error: "Not a git repository"**
+- Run monkey-test from within a git repository
+- Ensure `.git` directory exists
+
+**Error: "Invalid commit reference"**
+- Verify the commit exists: `git log --oneline`
+- Use valid references: `main`, `HEAD~1`, commit SHA, etc.
+
+**Error: "No changes found between commits"**
+- The diff is empty - no changes detected
+- Check if you're comparing identical commits
+
+**LLM generates invalid XML**
+- Try running again - LLMs can occasionally produce malformed output
+- Check your API key and quota limits
+- Try a different model with `TEST_GENERATION_MODEL`
+
+### Debug Mode
+
+Enable verbose logging:
 
 ```bash
 export BROWSER_USE_API_KEY="bu_..."
