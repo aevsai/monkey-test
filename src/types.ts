@@ -2,7 +2,7 @@
  * Type definitions for Browser Use Test Runner
  */
 
-export type TestStatus = "pending" | "passed" | "failed" | "error" | "timeout";
+export type TestStatus = "pending" | "passed" | "failed" | "error" | "timeout" | "not-finished";
 
 export interface TestMetadata {
   name?: string;
@@ -41,6 +41,7 @@ export interface TestSummary {
   failed: number;
   errors: number;
   timeouts: number;
+  notFinished: number;
   successRate: string;
 }
 

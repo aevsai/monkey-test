@@ -320,6 +320,7 @@ export function exportTestStatistics(report: TestReport): void {
   setOutput('failed_tests', String(summary.failed));
   setOutput('error_tests', String(summary.errors));
   setOutput('timeout_tests', String(summary.timeouts));
+  setOutput('not_finished_tests', String(summary.notFinished));
   setOutput('success_rate', summary.successRate);
   
   console.log('✅ Exported test statistics as outputs');

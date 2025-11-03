@@ -87,6 +87,7 @@ export function getStatusIcon(status: string): string {
     error: "⚠️",
     pending: "⏳",
     timeout: "⏱️",
+    "not-finished": "🔄",
   };
   return icons[status] || "❓";
 }
@@ -111,6 +112,30 @@ export function truncate(str: string, maxLength: number): string {
  */
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Parse status tag from Browser Use output
+ * Expected format: <status>completed</status> or <status>failed</status> or <status>not-finished</status>
+ * 
+ * @param output The output string from Browser Use task
+ * @returns The status value ('completed', 'failed', 'not-finished') or null if not found
+ */
+export function parseStatusTag(output: string): 'completed' | 'failed' | 'not-finished' | null {
+  if (!output) return null;
+  
+  // Match <status>VALUE</status> tag (case-insensitive)
+  const match = output.match(/<status>\s*([^<]+?)\s*<\/status>/i);
+  if (!match || !match[1]) return null;
+  
+  const status = match[1].trim().toLowerCase();
+  
+  // Validate status value
+  if (status === 'completed' || status === 'failed' || status === 'not-finished') {
+    return status;
+  }
+  
+  return null;
 }
 
 /**

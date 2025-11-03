@@ -23,13 +23,17 @@ Return the verification results as a JSON object:
   "heading_found": true/false,
   "paragraph_found": true/false,
   "link_found": true/false,
-  "link_url": "actual URL of the link",
-  "test_status": "PASS/FAIL"
+  "link_url": "actual URL of the link"
 }
 ```
 
-The test should return "PASS" only if all checks are true. Otherwise return "FAIL".
+After the JSON, include a status tag indicating the test result:
+- If all checks pass, include: <status>completed</status>
+- If any check fails, include: <status>failed</status>
+- If you couldn't complete the checks, include: <status>not-finished</status>
 
 # Expected Output
 
 All checks should pass. The page should load successfully with all expected elements present.
+
+The response should include <status>completed</status> tag if successful.

@@ -11,17 +11,19 @@ import {
   sanitizeFilename,
   truncate,
   separator,
+  parseStatusTag,
 } from "./utils";
 
 /**
- * Execute a single test case with a dedicated session
+ * Execute a single test case with a fresh session
  */
 export async function executeTest(
   client: BrowserUseClient,
-  session: any,
   testCase: TestCase,
   filePath: string,
-  config: Config
+  config: Config,
+  onSessionCreated?: (sessionId: string) => void,
+  onSessionClosed?: (sessionId: string) => void
 ): Promise<TestResult> {
   const result: TestResult = {
     name: testCase.name,
@@ -41,17 +43,35 @@ export async function executeTest(
 
   const startTime = Date.now();
 
+  let session: any = null;
+
   try {
-    // Create task in the provided session
+    // Create a fresh session for this test
+    console.log(`🔧 Creating new session for test...`);
+    session = await client.sessions.createSession();
+    console.log(`✅ Session created: ${session.id}`);
+    
+    // Track the session
+    if (onSessionCreated) {
+      onSessionCreated(session.id);
+    }
+
+    // Create task in the session
     console.log(`🚀 Creating Browser Use task in session ${session.id}...`);
     console.log(`📋 Task instructions: ${truncate(testCase.task, 200)}...`);
 
-    // Prepend base URL context if configured
+    // Build task instructions with status tag requirement
     let taskInstructions = testCase.task;
+    
+    // Prepend base URL context if configured
     if (config.baseUrl) {
-      taskInstructions = `Conduct testing at: ${config.baseUrl}\n\n${testCase.task}`;
+      taskInstructions = `Conduct testing at: ${config.baseUrl}\n\n${taskInstructions}`;
       console.log(`🌐 Base URL: ${config.baseUrl}`);
     }
+    
+    // Add status tag requirement to all tasks
+    const statusTagInstruction = `\n\nIMPORTANT: You must include a status tag in your response to indicate the result:\n- <status>completed</status> if the task was completed successfully\n- <status>failed</status> if the task failed or encountered errors\n- <status>not-finished</status> if the task could not be completed\n`;
+    taskInstructions = taskInstructions + statusTagInstruction;
 
     const taskParams: any = {
       sessionId: session.id,
@@ -107,55 +127,33 @@ export async function executeTest(
 
     // Determine final status based on task completion
     if (finalStatus === "finished") {
-      // Check if the task output indicates failure
-      const outputLower = (taskResult.output || "").toLowerCase();
-      const hasFailureIndicator = 
-        outputLower.includes('"test_status": "fail"') ||
-        outputLower.includes('"test_status":"fail"') ||
-        outputLower.includes('"overall_result": "fail"') ||
-        outputLower.includes('"overall_result":"fail"') ||
-        outputLower.includes('"status": "fail"') ||
-        outputLower.includes('"status":"fail"') ||
-        outputLower.includes('test_status: fail') ||
-        outputLower.includes('overall_result: fail') ||
-        outputLower.includes('status: fail') ||
-        /test[_\s]?status['":\s]*fail/i.test(taskResult.output || "") ||
-        /overall[_\s]?result['":\s]*fail/i.test(taskResult.output || "");
-
-      // Check if task output indicates failure
-      if (hasFailureIndicator) {
-        result.status = "failed";
-        result.error = "Test output indicates failure (test_status or overall_result is FAIL)";
-        console.log(`❌ Test FAILED in ${result.duration.toFixed(2)}s`);
-        console.log(`💥 Reason: ${result.error}`);
-        console.log(`📤 Output: ${taskResult.output}`);
-      } else if (testCase.expectedOutput) {
-        // Validate against expected output if provided
-        const expectedLower = testCase.expectedOutput.toLowerCase();
-        const actualLower = outputLower;
-        
-        // Simple validation: check if key phrases from expected output are present
-        const isValid = 
-          actualLower.includes(expectedLower) ||
-          expectedLower.split(/[,.\n]/).filter(phrase => phrase.trim().length > 5)
-            .every(phrase => actualLower.includes(phrase.trim().toLowerCase()));
-        
-        if (isValid) {
-          result.status = "passed";
-          console.log(`✅ Test PASSED in ${result.duration.toFixed(2)}s`);
-          console.log(`📤 Output matches expected criteria`);
-          console.log(`📤 Output: ${taskResult.output}`);
-        } else {
-          result.status = "failed";
-          result.error = "Test output does not match expected output";
-          console.log(`❌ Test FAILED in ${result.duration.toFixed(2)}s`);
-          console.log(`💥 Expected: ${testCase.expectedOutput}`);
-          console.log(`📤 Actual: ${taskResult.output}`);
-        }
-      } else {
-        // No expected output and no failure indicators - mark as passed
+      // Parse status tag from output
+      const statusTag = parseStatusTag(taskResult.output || "");
+      
+      if (statusTag === "completed") {
         result.status = "passed";
         console.log(`✅ Test PASSED in ${result.duration.toFixed(2)}s`);
+        console.log(`📊 Status tag: <status>completed</status>`);
+        console.log(`📤 Output: ${taskResult.output}`);
+      } else if (statusTag === "failed") {
+        result.status = "failed";
+        result.error = "Browser Use reported task failure (status tag: failed)";
+        console.log(`❌ Test FAILED in ${result.duration.toFixed(2)}s`);
+        console.log(`📊 Status tag: <status>failed</status>`);
+        console.log(`💥 Reason: ${result.error}`);
+        console.log(`📤 Output: ${taskResult.output}`);
+      } else if (statusTag === "not-finished") {
+        result.status = "not-finished";
+        result.error = "Browser Use could not complete the task (status tag: not-finished)";
+        console.log(`⚠️  Test NOT FINISHED in ${result.duration.toFixed(2)}s`);
+        console.log(`📊 Status tag: <status>not-finished</status>`);
+        console.log(`💥 Reason: ${result.error}`);
+        console.log(`📤 Output: ${taskResult.output}`);
+      } else {
+        // No status tag found - default to passed for backward compatibility
+        result.status = "passed";
+        console.log(`✅ Test PASSED in ${result.duration.toFixed(2)}s`);
+        console.log(`⚠️  Warning: No status tag found in output (defaulting to passed)`);
         console.log(`📤 Output: ${taskResult.output}`);
       }
     } else if (finalStatus === "stopped") {
@@ -200,6 +198,22 @@ export async function executeTest(
 
     console.log(`❌ Test FAILED in ${result.duration.toFixed(2)}s`);
     console.log(`💥 Error: ${result.error}`);
+  } finally {
+    // Always cleanup session after test completes
+    if (session) {
+      try {
+        console.log(`🧹 Cleaning up session ${session.id}...`);
+        await client.sessions.updateSession(session.id, { action: "stop" });
+        console.log(`✅ Session ${session.id} stopped`);
+        
+        // Untrack the session
+        if (onSessionClosed) {
+          onSessionClosed(session.id);
+        }
+      } catch (error) {
+        console.warn(`⚠️  Warning: Failed to cleanup session ${session.id}:`, error);
+      }
+    }
   }
 
   return result;

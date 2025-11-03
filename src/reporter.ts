@@ -22,6 +22,7 @@ export function generateReport(results: TestResult[]): TestReport {
   const failed = results.filter((r) => r.status === "failed").length;
   const errors = results.filter((r) => r.status === "error").length;
   const timeouts = results.filter((r) => r.status === "timeout").length;
+  const notFinished = results.filter((r) => r.status === "not-finished").length;
 
   const summary: TestSummary = {
     total,
@@ -29,6 +30,7 @@ export function generateReport(results: TestResult[]): TestReport {
     failed,
     errors,
     timeouts,
+    notFinished,
     successRate: formatSuccessRate(passed, total),
   };
 
@@ -52,6 +54,7 @@ export function printSummary(report: TestReport): void {
   console.log(chalk.red(`❌ Failed:      ${summary.failed}`));
   console.log(chalk.yellow(`⚠️  Errors:      ${summary.errors}`));
   console.log(chalk.magenta(`⏱️  Timeouts:    ${summary.timeouts}`));
+  console.log(chalk.cyan(`🔄 Not Finished: ${summary.notFinished}`));
   console.log(`Success Rate:   ${summary.successRate}`);
   console.log(`${separator()}\n`);
 
@@ -68,6 +71,8 @@ export function printSummary(report: TestReport): void {
           ? chalk.red
           : result.status === "timeout"
           ? chalk.magenta
+          : result.status === "not-finished"
+          ? chalk.cyan
           : chalk.yellow;
 
       console.log(

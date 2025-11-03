@@ -30,6 +30,13 @@ Return the results as a JSON array with the following format:
 
 If no matching posts are found in the top 10, return an empty array [].
 
+After the JSON, include a status tag indicating the test result:
+- If you successfully extracted the data, include: <status>completed</status>
+- If you encountered errors or couldn't access the site, include: <status>failed</status>
+- If you couldn't complete the task, include: <status>not-finished</status>
+
 # Expected Output
 
 Should return a JSON array of posts matching the search criteria. Each post should have all four required fields.
+
+The response should include <status>completed</status> tag if the search was completed successfully.

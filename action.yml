@@ -81,6 +81,9 @@ outputs:
   timeout-tests:
     description: "Number of tests that timed out"
     value: ${{ steps.run-tests.outputs.timeout-tests }}
+  not-finished-tests:
+    description: "Number of tests that were not finished"
+    value: ${{ steps.run-tests.outputs.not-finished-tests }}
   success-rate:
     description: "Test success rate percentage"
     value: ${{ steps.run-tests.outputs.success-rate }}

@@ -524,6 +524,24 @@ Your test instructions in plain English...
 2. Interact with elements
 3. Verify conditions
 4. Return results
+
+**IMPORTANT:** Include a status tag in your response:
+- `<status>completed</status>` if the task completed successfully
+- `<status>failed</status>` if the task failed or encountered errors
+- `<status>not-finished</status>` if the task couldn't be completed
+```
+
+### Status Tag Requirement
+
+MonkeyTest automatically adds instructions to all test tasks requiring the Browser Use agent to include a status tag in its response. This tag is used to determine if the test passed or failed:
+
+- **`<status>completed</status>`** - Test passes ✅ (task completed successfully)
+- **`<status>failed</status>`** - Test fails ❌ (task encountered errors or conditions not met) - **CAUSES BUILD FAILURE**
+- **`<status>not-finished</status>`** - Test not finished 🔄 (task couldn't be completed, e.g., site down, network issues) - **Does NOT cause build failure**
+
+The agent will parse this tag from the output and set the test result accordingly. If no status tag is found, the test defaults to passed for backward compatibility.
+
+**Important:** Tests marked as `not-finished` are tracked separately and do not cause the test run to fail. This is useful for scenarios where external factors prevent test completion (site unavailable, network issues, etc.) but you don't want to fail the entire build.
 ```
 
 ### Frontmatter Options
@@ -575,7 +593,9 @@ name: "Page Load Test"
 # Task
 
 Go to https://example.com and verify the page loads successfully.
-Return "PASS" if successful.
+
+If the page loads correctly, include: <status>completed</status>
+Otherwise, include: <status>failed</status>
 ```
 
 ### Form Testing
@@ -596,6 +616,10 @@ timeout: 120
 3. Submit the form
 4. Verify the success message appears
 5. Return the confirmation message text
+
+Include status tag:
+- <status>completed</status> if form submitted successfully
+- <status>failed</status> if form submission failed
 ```
 
 ### Data Extraction
@@ -610,6 +634,10 @@ llm_model: "browser-use-llm"
 
 Go to https://news.ycombinator.com and extract the top 10 post titles and URLs.
 Return as JSON array with "title" and "url" fields.
+
+Include status tag:
+- <status>completed</status> if data extracted successfully
+- <status>failed</status> if extraction failed
 ```
 
 ## Output
@@ -784,8 +812,15 @@ console.log(result.outputFiles);
 - **Define output format**: "Return as JSON with fields: name, email, status"
 - **Add context**: Explain login credentials or prerequisites
 - **Use timeouts**: Set realistic timeouts based on page complexity
+- **Include status tags**: Always instruct the agent to include `<status>completed</status>`, `<status>failed</status>`, or `<status>not-finished</status>` in the response
+- **Define success criteria**: Clearly specify what constitutes success vs failure for the status tag
+- **Use not-finished appropriately**: Use `<status>not-finished</status>` for external issues (site down, network problems) that shouldn't fail the build, and `<status>failed</status>` for actual test failures
 
 ### ❌ Don'ts
+
+- **Don't forget status tags**: Always include instructions for status tags to ensure proper test validation
+- **Don't be ambiguous about success**: Make it clear when the agent should report `<status>completed</status>` vs `<status>failed</status>` vs `<status>not-finished</status>`
+- **Don't misuse not-finished**: Don't use `<status>not-finished</status>` for actual test failures - use it only when external factors prevent completion
 
 - **Too vague**: "Test the website" - what specifically?
 - **Too broad**: "Check all functionality" - be more specific

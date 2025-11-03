@@ -32,19 +32,23 @@ Return the results as a JSON object with the following format:
 {
   "empty_form_test": {
     "submitted": true/false,
-    "validation_errors": ["list of any validation messages"],
-    "status": "passed/failed"
+    "validation_errors": ["list of any validation messages"]
   },
   "valid_input_test": {
     "submitted": true/false,
     "success_message": "any success message shown",
-    "final_url": "URL after submission",
-    "status": "passed/failed"
-  },
-  "overall_result": "PASS/FAIL"
+    "final_url": "URL after submission"
+  }
 }
 ```
+
+After the JSON, include a status tag indicating the test result:
+- If both tests behave as expected, include: <status>completed</status>
+- If either test fails, include: <status>failed</status>
+- If you couldn't complete the tests, include: <status>not-finished</status>
 
 # Expected Output
 
 The form should prevent empty submission and show validation errors. With valid input, the form should submit successfully and redirect or show a success message.
+
+The response should include <status>completed</status> tag if both tests pass as expected.
