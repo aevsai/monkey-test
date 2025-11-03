@@ -50,7 +50,7 @@ export async function executeTest(
     console.log(`🔧 Creating new session for test...`);
     session = await client.sessions.createSession();
     console.log(`✅ Session created: ${session.id}`);
-    
+
     // Track the session
     if (onSessionCreated) {
       onSessionCreated(session.id);
@@ -62,15 +62,15 @@ export async function executeTest(
 
     // Build task instructions with status tag requirement
     let taskInstructions = testCase.task;
-    
+
     // Prepend base URL context if configured
     if (config.baseUrl) {
       taskInstructions = `Conduct testing at: ${config.baseUrl}\n\n${taskInstructions}`;
       console.log(`🌐 Base URL: ${config.baseUrl}`);
     }
-    
+
     // Add status tag requirement to all tasks
-    const statusTagInstruction = `\n\nIMPORTANT: You must include a status tag in your response to indicate the result:\n- <status>completed</status> if the task was completed successfully\n- <status>failed</status> if the task failed or encountered errors\n- <status>not-finished</status> if the task could not be completed\n`;
+    const statusTagInstruction = `\n\nIMPORTANT: You must include a status tag in your response to indicate the result:\n- <status>completed</status> if the task was completed successfully till the last step\n- <status>failed</status> if the task failed or encountered errors\n- <status>not-finished</status> if the task could not be completed\n`;
     taskInstructions = taskInstructions + statusTagInstruction;
 
     const taskParams: any = {
@@ -100,7 +100,7 @@ export async function executeTest(
     let lastStatus: string | undefined;
     let taskResult;
     let finalStatus: string | undefined;
-    
+
     for await (const update of task.watch()) {
       if (update.event === 'status') {
         const status = update.data.status;
@@ -108,7 +108,7 @@ export async function executeTest(
           console.log(`📊 Status: ${status}`);
           lastStatus = status;
         }
-        
+
         // Check if task is complete
         if (status === "finished" || status === "stopped") {
           taskResult = update.data;
@@ -129,7 +129,7 @@ export async function executeTest(
     if (finalStatus === "finished") {
       // Parse status tag from output
       const statusTag = parseStatusTag(taskResult.output || "");
-      
+
       if (statusTag === "completed") {
         result.status = "passed";
         console.log(`✅ Test PASSED in ${result.duration.toFixed(2)}s`);
@@ -205,7 +205,7 @@ export async function executeTest(
         console.log(`🧹 Cleaning up session ${session.id}...`);
         await client.sessions.updateSession(session.id, { action: "stop" });
         console.log(`✅ Session ${session.id} stopped`);
-        
+
         // Untrack the session
         if (onSessionClosed) {
           onSessionClosed(session.id);
@@ -240,13 +240,13 @@ async function saveOutputFiles(
           taskId,
           fileObj.id
         );
-        
+
         // Fetch the file content from the presigned URL
         const response = await fetch(urlResponse.downloadUrl);
         if (!response.ok) {
           throw new Error(`Failed to download file: ${response.statusText}`);
         }
-        
+
         const fileData = await response.arrayBuffer();
         const filePath = path.join(testOutputDir, fileObj.name);
 

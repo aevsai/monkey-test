@@ -158,6 +158,7 @@ Analyze the code changes and generate up to ${maxTestCases} browser-based test c
 - Focus on end-to-end user scenarios
 - Prioritize critical functionality over minor changes
 - If changes are backend-only or non-testable in browser, generate fewer tests
+- If user provided credentials, include them in the test cases
 
 **Output Format:**
 You MUST respond with valid XML in the following format:
@@ -340,23 +341,23 @@ function escapeYamlValue(value: string): string {
   }
 
   // Check if value needs quoting (contains special YAML chars)
-  const needsQuoting = 
-    /[:\n\r#&*!|>'"%@`\[\]{}]/.test(value) || 
+  const needsQuoting =
+    /[:\n\r#&*!|>'"%@`\[\]{}]/.test(value) ||
     /^\s|\s$/.test(value) ||
     value.includes(': ') ||
     value.includes(' #');
-  
+
   if (!needsQuoting) {
     return value;
   }
-  
+
   // Escape backslashes and double quotes for double-quoted strings
   const escaped = value
     .replace(/\\/g, '\\\\')
     .replace(/"/g, '\\"')
     .replace(/\n/g, '\\n')
     .replace(/\r/g, '\\r');
-  
+
   return `"${escaped}"`;
 }
 
