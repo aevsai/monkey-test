@@ -66,6 +66,7 @@ export interface Config {
   artifactDir?: string;
   maxDiffSize?: number;
   maxTestCases?: number;
+  contextFile?: string;
 }
 
 // SDK types are imported from browser-use-sdk

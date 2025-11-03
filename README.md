@@ -102,6 +102,7 @@ jobs:
           from-commit: ${{ github.event.pull_request.base.sha }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           api-key: ${{ secrets.BROWSER_USE_API_KEY }}
+          context-file: './docs/app-context.md'
           max-test-cases: 10
 
       - name: Upload Results
@@ -125,6 +126,7 @@ jobs:
 | `from-commit` | No | - | Generate tests from diff |
 | `openai-api-key` | No** | - | OpenAI API key (diff mode) |
 | `test-generation-model` | No | `gpt-4-turbo-preview` | Model for generation |
+| `context-file` | No | - | Path to context file describing solution |
 | `generate-only` | No | `false` | Generate without executing |
 | `max-test-cases` | No | `10` | Max tests to generate |
 | `max-concurrency` | No | `3` | Concurrent execution |
@@ -205,6 +207,54 @@ export MAX_CONCURRENCY=3
 export TIMEOUT=300
 ```
 
+#### Using Context Files for Better Test Generation
+
+Context files help the LLM generate more accurate and relevant tests by providing information about your application. Create a markdown file describing your solution:
+
+```bash
+# Create a context file
+cat > docs/app-context.md << 'EOF'
+# Application Context
+
+## Overview
+E-commerce platform built with React and Node.js
+
+## Key Features
+- User authentication
+- Product catalog with search
+- Shopping cart
+- Checkout with Stripe integration
+
+## Important URLs
+- Homepage: /
+- Products: /products
+- Cart: /cart
+- Checkout: /checkout
+
+## Testing Priorities
+1. Critical: Payment flow
+2. High: User authentication
+3. Medium: Product search
+EOF
+
+# Use the context file
+monkey-test --from-commit main --context-file ./docs/app-context.md
+
+# Or with environment variable
+CONTEXT_FILE=./docs/app-context.md monkey-test --from-commit main
+```
+
+**What to include in your context file:**
+- Application overview and purpose
+- Technical stack
+- Key features and user workflows
+- Important URLs and routes
+- Testing priorities
+- Domain-specific terminology
+- Known constraints or test data requirements
+
+See [examples/context-file-example.md](examples/context-file-example.md) for a complete example.
+
 ## GitHub Actions Integration
 
 MonkeyTest includes built-in GitHub Actions support for automated testing on PRs and commits.
@@ -252,9 +302,10 @@ The GitHub Actions workflow provides:
 monkey-test [OPTIONS]
 
 OPTIONS:
-  --from-commit <ref>   Generate tests from git diff (commit reference)
-  --generate-only       Only generate tests, don't execute them
-  --help                Show help message
+  --from-commit <ref>      Generate tests from git diff (commit reference)
+  --context-file <path>    Path to context file describing the solution
+  --generate-only          Only generate tests, don't execute them
+  --help                   Show help message
 
 EXAMPLES:
   # Standard mode
@@ -268,6 +319,9 @@ EXAMPLES:
 
   # Preview generated tests only
   monkey-test --from-commit HEAD~1 --generate-only
+
+  # Use context file for better test generation
+  monkey-test --from-commit main --context-file ./docs/app-context.md
 ```
 
 ## Environment Variables Reference
@@ -283,6 +337,7 @@ EXAMPLES:
 - `TEST_DIRECTORY`: Test files directory (default: `tests`)
 - `LLM_MODEL`: Model for test execution (default: `browser-use-llm`)
 - `TEST_GENERATION_MODEL`: Model for test generation (default: `gpt-4-turbo-preview`)
+- `CONTEXT_FILE`: Path to context file describing the solution being tested
 - `TIMEOUT`: Test timeout in seconds (default: `300`)
 - `MAX_CONCURRENCY`: Max concurrent tests (default: `3`)
 - `MAX_TEST_CASES`: Max tests to generate (default: `10`)

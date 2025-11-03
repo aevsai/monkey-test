@@ -3,8 +3,7 @@
  */
 
 import OpenAI from 'openai';
-import { XMLParser } from 'fast-xml-parser';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { GitDiffResult } from './git-diff';
 
@@ -21,6 +20,7 @@ export interface TestGenerationOptions {
   maxTestCases?: number;
   outputDir?: string;
   baseUrl?: string;
+  contextFile?: string;
 }
 
 export interface TestGenerationResult {
@@ -45,8 +45,14 @@ export async function generateTestCasesFromDiff(
   const model = options.model || 'gpt-4-turbo-preview';
   const maxTestCases = options.maxTestCases || 10;
 
+  // Read context file if provided
+  const contextContent = await readContextFile(options.contextFile);
+  if (contextContent) {
+    console.log(`📄 Using context file: ${options.contextFile}`);
+  }
+
   // Build prompt
-  const prompt = buildTestGenerationPrompt(diffResult, maxTestCases, options.baseUrl);
+  const prompt = buildTestGenerationPrompt(diffResult, maxTestCases, options.baseUrl, contextContent);
 
   console.log(`📝 Prompt length: ${prompt.length} characters`);
   console.log(`🔧 Using model: ${model}`);
@@ -85,9 +91,33 @@ export async function generateTestCasesFromDiff(
 }
 
 /**
+ * Read context file content
+ */
+async function readContextFile(filePath?: string): Promise<string | null> {
+  if (!filePath) {
+    return null;
+  }
+
+  try {
+    const content = await readFile(filePath, 'utf-8');
+    return content.trim() || null;
+  } catch (error) {
+    console.warn(`⚠️  Could not read context file: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
+}
+
+/**
  * Build prompt for LLM to generate test cases
  */
-function buildTestGenerationPrompt(diffResult: GitDiffResult, maxTestCases: number, baseUrl?: string): string {
+function buildTestGenerationPrompt(diffResult: GitDiffResult, maxTestCases: number, baseUrl?: string, contextContent?: string | null): string {
+  const contextSection = contextContent
+    ? `**Solution Context:**
+${contextContent}
+
+`
+    : '';
+
   const baseUrlSection = baseUrl
     ? `**Deployment URL:**
 The application is deployed at: ${baseUrl}
@@ -98,7 +128,7 @@ ALL tests MUST start by navigating to this URL. Include "Navigate to ${baseUrl}"
 
   return `You are a QA engineer tasked with creating browser-based test cases from code changes.
 
-${baseUrlSection}**Git Diff Summary:**
+${contextSection}${baseUrlSection}**Git Diff Summary:**
 - From commit: ${diffResult.fromCommit}
 - To commit: ${diffResult.toCommit}
 - Files changed: ${diffResult.filesChanged.length}

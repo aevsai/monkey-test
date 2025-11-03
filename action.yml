@@ -58,6 +58,9 @@ inputs:
     description: "Maximum number of concurrent tests (default: 3)"
     required: false
     default: "3"
+  context-file:
+    description: "Path to context file with description of the solution being tested (optional, helps generate better tests)"
+    required: false
 
 outputs:
   results:
@@ -127,6 +130,7 @@ runs:
         MAX_TEST_CASES: ${{ inputs.max-test-cases }}
         MAX_DIFF_SIZE: ${{ inputs.max-diff-size }}
         MAX_CONCURRENCY: ${{ inputs.max-concurrency }}
+        CONTEXT_FILE: ${{ inputs.context-file }}
         ARTIFACT_DIR: "artifacts"
       run: |
         node ${{ github.action_path }}/dist/index.js

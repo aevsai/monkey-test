@@ -26,6 +26,7 @@ export function loadConfig(): Config {
   const artifactDir = process.env.ARTIFACT_DIR || "artifacts";
   const maxDiffSize = parseInt(process.env.MAX_DIFF_SIZE || "100000", 10);
   const maxTestCases = parseInt(process.env.MAX_TEST_CASES || "10", 10);
+  const contextFile = process.env.CONTEXT_FILE || getCliArg("--context-file");
 
   return {
     apiKey,
@@ -44,6 +45,7 @@ export function loadConfig(): Config {
     maxDiffSize,
     maxTestCases,
     baseUrl,
+    contextFile,
   };
 }
 

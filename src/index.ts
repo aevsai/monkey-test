@@ -39,15 +39,17 @@ USAGE:
   monkey-test [OPTIONS]
 
 OPTIONS:
-  --from-commit <ref>   Generate tests from git diff (commit reference)
-  --url <url>           Base URL where the application is deployed
-  --generate-only       Only generate tests, don't execute them
-  --help                Show this help message
+  --from-commit <ref>      Generate tests from git diff (commit reference)
+  --url <url>              Base URL where the application is deployed
+  --context-file <path>    Path to context file describing the solution being tested
+  --generate-only          Only generate tests, don't execute them
+  --help                   Show this help message
 
 ENVIRONMENT VARIABLES:
   BROWSER_USE_API_KEY        API key for Browser Use (required for standard mode)
   OPENAI_API_KEY             API key for OpenAI (required for --from-commit mode)
   BASE_URL                   Base URL where application is deployed (optional)
+  CONTEXT_FILE               Path to context file describing the solution (optional)
   TEST_DIRECTORY             Directory containing test files (default: tests)
   LLM_MODEL                  LLM model for test execution (default: browser-use-llm)
   TEST_GENERATION_MODEL      LLM model for test generation (default: gpt-4-turbo-preview)
@@ -69,6 +71,9 @@ EXAMPLES:
 
   # Generate tests from git diff
   monkey-test --from-commit main --url https://staging.example.com
+
+  # Generate tests with context file for better accuracy
+  monkey-test --from-commit main --context-file ./docs/app-context.md
 
   # Generate tests only (don't execute)
   monkey-test --from-commit HEAD~3 --generate-only
@@ -119,6 +124,7 @@ EXAMPLES:
       maxTestCases: this.config.maxTestCases,
       outputDir: '.monkey-test-generated',
       baseUrl: this.config.baseUrl,
+      contextFile: this.config.contextFile,
     });
 
     console.log(`✅ Generated ${generationResult.testCases.length} test case(s)`);
