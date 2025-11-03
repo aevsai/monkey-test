@@ -107,9 +107,57 @@ export async function executeTest(
 
     // Determine final status based on task completion
     if (finalStatus === "finished") {
-      result.status = "passed";
-      console.log(`✅ Test PASSED in ${result.duration.toFixed(2)}s`);
-      console.log(`📤 Output: ${taskResult.output}`);
+      // Check if the task output indicates failure
+      const outputLower = (taskResult.output || "").toLowerCase();
+      const hasFailureIndicator = 
+        outputLower.includes('"test_status": "fail"') ||
+        outputLower.includes('"test_status":"fail"') ||
+        outputLower.includes('"overall_result": "fail"') ||
+        outputLower.includes('"overall_result":"fail"') ||
+        outputLower.includes('"status": "fail"') ||
+        outputLower.includes('"status":"fail"') ||
+        outputLower.includes('test_status: fail') ||
+        outputLower.includes('overall_result: fail') ||
+        outputLower.includes('status: fail') ||
+        /test[_\s]?status['":\s]*fail/i.test(taskResult.output || "") ||
+        /overall[_\s]?result['":\s]*fail/i.test(taskResult.output || "");
+
+      // Check if task output indicates failure
+      if (hasFailureIndicator) {
+        result.status = "failed";
+        result.error = "Test output indicates failure (test_status or overall_result is FAIL)";
+        console.log(`❌ Test FAILED in ${result.duration.toFixed(2)}s`);
+        console.log(`💥 Reason: ${result.error}`);
+        console.log(`📤 Output: ${taskResult.output}`);
+      } else if (testCase.expectedOutput) {
+        // Validate against expected output if provided
+        const expectedLower = testCase.expectedOutput.toLowerCase();
+        const actualLower = outputLower;
+        
+        // Simple validation: check if key phrases from expected output are present
+        const isValid = 
+          actualLower.includes(expectedLower) ||
+          expectedLower.split(/[,.\n]/).filter(phrase => phrase.trim().length > 5)
+            .every(phrase => actualLower.includes(phrase.trim().toLowerCase()));
+        
+        if (isValid) {
+          result.status = "passed";
+          console.log(`✅ Test PASSED in ${result.duration.toFixed(2)}s`);
+          console.log(`📤 Output matches expected criteria`);
+          console.log(`📤 Output: ${taskResult.output}`);
+        } else {
+          result.status = "failed";
+          result.error = "Test output does not match expected output";
+          console.log(`❌ Test FAILED in ${result.duration.toFixed(2)}s`);
+          console.log(`💥 Expected: ${testCase.expectedOutput}`);
+          console.log(`📤 Actual: ${taskResult.output}`);
+        }
+      } else {
+        // No expected output and no failure indicators - mark as passed
+        result.status = "passed";
+        console.log(`✅ Test PASSED in ${result.duration.toFixed(2)}s`);
+        console.log(`📤 Output: ${taskResult.output}`);
+      }
     } else if (finalStatus === "stopped") {
       // Task was stopped - likely due to timeout or manual intervention
       if (result.duration >= testCase.timeout) {

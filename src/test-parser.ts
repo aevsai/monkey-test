@@ -21,29 +21,52 @@ export async function parseTestCase(
     
     const metadata = parsed.data as TestMetadata;
     let taskContent = parsed.content.trim();
+    let expectedOutput = metadata.expected_output;
 
-    // If content has sections, look for "# Task" or "## Task" section
-    if (taskContent.includes("# Task") || taskContent.includes("## Task")) {
-      const taskLines: string[] = [];
-      const lines = taskContent.split("\n");
-      let inTaskSection = false;
+    // Parse sections from markdown content
+    const lines = taskContent.split("\n");
+    const taskLines: string[] = [];
+    const expectedOutputLines: string[] = [];
+    let inTaskSection = false;
+    let inExpectedOutputSection = false;
 
-      for (const line of lines) {
-        const trimmed = line.trim().toLowerCase();
-        if (trimmed === "# task" || trimmed === "## task") {
-          inTaskSection = true;
-          continue;
-        } else if (line.trim().startsWith("#") && inTaskSection) {
-          // New section started
-          break;
-        } else if (inTaskSection) {
-          taskLines.push(line);
-        }
+    for (const line of lines) {
+      const trimmed = line.trim().toLowerCase();
+      
+      // Check for Task section
+      if (trimmed === "# task" || trimmed === "## task") {
+        inTaskSection = true;
+        inExpectedOutputSection = false;
+        continue;
+      } 
+      // Check for Expected Output section
+      else if (trimmed === "# expected output" || trimmed === "## expected output") {
+        inTaskSection = false;
+        inExpectedOutputSection = true;
+        continue;
       }
-
-      if (taskLines.length > 0) {
-        taskContent = taskLines.join("\n").trim();
+      // New section started
+      else if (line.trim().startsWith("#")) {
+        inTaskSection = false;
+        inExpectedOutputSection = false;
       }
+      
+      // Collect lines based on current section
+      if (inTaskSection) {
+        taskLines.push(line);
+      } else if (inExpectedOutputSection) {
+        expectedOutputLines.push(line);
+      }
+    }
+
+    // Use parsed task content if found
+    if (taskLines.length > 0) {
+      taskContent = taskLines.join("\n").trim();
+    }
+
+    // Use parsed expected output if found (and not already in metadata)
+    if (!expectedOutput && expectedOutputLines.length > 0) {
+      expectedOutput = expectedOutputLines.join("\n").trim();
     }
 
     // If no task content found, return null
@@ -60,7 +83,7 @@ export async function parseTestCase(
       timeout: metadata.timeout || defaultTimeout,
       llmModel: metadata.llm_model || defaultLlmModel,
       inputFiles: metadata.input_files || [],
-      expectedOutput: metadata.expected_output,
+      expectedOutput: expectedOutput,
     };
 
     return testCase;
