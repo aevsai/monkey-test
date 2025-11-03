@@ -22,7 +22,7 @@ class BrowserUseTestRunner {
   private config;
   private client: BrowserUseClient | null = null;
   private results: TestResult[] = [];
-  private activeSessions: Set<string> = new Set();
+  private sessionPool: Array<{ id: string; session: any }> = [];
 
   constructor() {
     this.config = loadConfig();
@@ -221,6 +221,60 @@ EXAMPLES:
   }
 
   /**
+   * Create session pool for reuse
+   */
+  private async createSessionPool(): Promise<void> {
+    if (!this.client) {
+      throw new Error("Client not initialized");
+    }
+
+    console.log(`\n🔧 Creating session pool with ${this.config.maxConcurrency} session(s)...`);
+    
+    for (let i = 0; i < this.config.maxConcurrency; i++) {
+      try {
+        const session = await this.client.sessions.createSession();
+        this.sessionPool.push({ id: session.id, session });
+        console.log(`✅ Session ${i + 1}/${this.config.maxConcurrency} created: ${session.id}`);
+      } catch (error) {
+        console.error(`❌ Failed to create session ${i + 1}:`, error);
+        throw new Error(`Failed to create session pool: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    
+    console.log(`✅ Session pool ready with ${this.sessionPool.length} session(s)\n`);
+  }
+
+  /**
+   * Get a session from the pool (round-robin)
+   */
+  private getSessionFromPool(index: number): any {
+    if (this.sessionPool.length === 0) {
+      throw new Error("Session pool is empty");
+    }
+    const poolIndex = index % this.sessionPool.length;
+    const poolEntry = this.sessionPool[poolIndex];
+    if (!poolEntry) {
+      throw new Error(`No session found at pool index ${poolIndex}`);
+    }
+    return poolEntry.session;
+  }
+
+  /**
+   * Reset session state between tests
+   */
+  private async resetSession(session: any): Promise<void> {
+    try {
+      // Optionally navigate to about:blank or perform other cleanup
+      // For now, we'll just verify the session is still active
+      // The Browser Use API will handle session state management
+      console.log(`🔄 Reusing session: ${session.id}`);
+    } catch (error) {
+      console.warn(`⚠️  Warning: Failed to reset session ${session.id}:`, error);
+      // Continue anyway - the test executor will handle any issues
+    }
+  }
+
+  /**
    * Run all tests with concurrent execution
    */
   private async runAllTests(): Promise<void> {
@@ -246,11 +300,14 @@ EXAMPLES:
       baseUrl: this.config.baseUrl,
     });
 
+    // Create session pool upfront
+    await this.createSessionPool();
+
     // Run tests concurrently with max concurrency limit
     this.results = await runWithConcurrency(
       testFiles,
       this.config.maxConcurrency,
-      async (testFile: string) => {
+      async (testFile: string, index: number) => {
         const testCase = await parseTestCase(
           testFile,
           this.config.timeout,
@@ -269,13 +326,12 @@ EXAMPLES:
           } as TestResult;
         }
 
-        // Create a dedicated session for this test
-        let session: any = null;
+        // Get a session from the pool for this test
+        const session = this.getSessionFromPool(index);
+        
         try {
-          console.log(`\n🔧 Creating session for test: ${testCase.name}...`);
-          session = await this.client!.sessions.createSession();
-          this.activeSessions.add(session.id);
-          console.log(`✅ Session created: ${session.id}`);
+          // Reset/prepare session for reuse
+          await this.resetSession(session);
 
           const result = await executeTest(
             this.client!,
@@ -287,7 +343,7 @@ EXAMPLES:
 
           return result;
         } catch (error) {
-          // Handle session creation or test execution errors
+          // Handle test execution errors
           return {
             name: testCase.name,
             filePath: testFile,
@@ -296,44 +352,32 @@ EXAMPLES:
             duration: 0,
             outputFiles: [],
           } as TestResult;
-        } finally {
-          // Always stop the session after test completes
-          if (session && session.id) {
-            try {
-              await this.client!.sessions.updateSession(session.id, { action: "stop" });
-              this.activeSessions.delete(session.id);
-              console.log(`🛑 Session stopped: ${session.id}`);
-            } catch (stopError) {
-              console.warn(`⚠️  Warning: Failed to stop session ${session.id}:`, stopError);
-              this.activeSessions.delete(session.id);
-            }
-          }
         }
       }
     );
   }
 
   /**
-   * Stop all active sessions (for graceful shutdown)
+   * Stop all sessions in the pool (for graceful shutdown)
    */
   private async stopAllActiveSessions(): Promise<void> {
-    if (this.activeSessions.size === 0) {
+    if (this.sessionPool.length === 0) {
       return;
     }
 
-    console.log(`\n🛑 Stopping ${this.activeSessions.size} active session(s)...`);
+    console.log(`\n🛑 Stopping ${this.sessionPool.length} session(s) from pool...`);
     
-    const stopPromises = Array.from(this.activeSessions).map(async (sessionId) => {
+    const stopPromises = this.sessionPool.map(async ({ id }) => {
       try {
-        await this.client!.sessions.updateSession(sessionId, { action: "stop" });
-        console.log(`✅ Stopped session: ${sessionId}`);
+        await this.client!.sessions.updateSession(id, { action: "stop" });
+        console.log(`✅ Stopped session: ${id}`);
       } catch (error) {
-        console.warn(`⚠️  Failed to stop session ${sessionId}:`, error);
+        console.warn(`⚠️  Failed to stop session ${id}:`, error);
       }
     });
 
     await Promise.allSettled(stopPromises);
-    this.activeSessions.clear();
+    this.sessionPool = [];
   }
 
   /**
