@@ -331,6 +331,36 @@ async function saveTestCasesAsMarkdown(
 }
 
 /**
+ * Escape YAML value for frontmatter
+ * Properly quotes/escapes values that contain special YAML characters
+ */
+function escapeYamlValue(value: string): string {
+  if (!value) {
+    return '""';
+  }
+
+  // Check if value needs quoting (contains special YAML chars)
+  const needsQuoting = 
+    /[:\n\r#&*!|>'"%@`\[\]{}]/.test(value) || 
+    /^\s|\s$/.test(value) ||
+    value.includes(': ') ||
+    value.includes(' #');
+  
+  if (!needsQuoting) {
+    return value;
+  }
+  
+  // Escape backslashes and double quotes for double-quoted strings
+  const escaped = value
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r');
+  
+  return `"${escaped}"`;
+}
+
+/**
  * Generate markdown test case from generated test case
  */
 function generateMarkdownTestCase(testCase: GeneratedTestCase, baseUrl?: string): string {
@@ -343,8 +373,8 @@ Conduct testing at: **${baseUrl}**
     : '';
 
   let markdown = `---
-name: ${testCase.name}
-description: ${testCase.description}
+name: ${escapeYamlValue(testCase.name)}
+description: ${escapeYamlValue(testCase.description)}
 ---
 
 # ${testCase.name}
