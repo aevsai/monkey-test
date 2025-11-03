@@ -83,9 +83,9 @@ export function generateTestSummaryMarkdown(report: TestReport, options?: {
 
   // Summary statistics
   markdown += `### Summary\n\n`;
-  markdown += `| Total | ✅ Passed | ❌ Failed | ⚠️ Errors | Success Rate |\n`;
-  markdown += `|-------|----------|----------|-----------|-------------|\n`;
-  markdown += `| ${summary.total} | ${summary.passed} | ${summary.failed} | ${summary.errors} | ${summary.successRate} |\n\n`;
+  markdown += `| Total | ✅ Passed | ❌ Failed | ⚠️ Errors | ⏱️ Timeouts | Success Rate |\n`;
+  markdown += `|-------|----------|----------|-----------|------------|-------------|\n`;
+  markdown += `| ${summary.total} | ${summary.passed} | ${summary.failed} | ${summary.errors} | ${summary.timeouts} | ${summary.successRate} |\n\n`;
 
   // Detailed results
   if (results.length > 0) {
@@ -106,7 +106,7 @@ export function generateTestSummaryMarkdown(report: TestReport, options?: {
   }
 
   // Failed tests details
-  const failedTests = results.filter(r => r.status === 'failed' || r.status === 'error');
+  const failedTests = results.filter(r => r.status === 'failed' || r.status === 'error' || r.status === 'timeout');
   if (failedTests.length > 0) {
     markdown += `### ❌ Failed Tests Details\n\n`;
 
@@ -141,6 +141,8 @@ function getStatusEmoji(status: string): string {
       return '⚠️';
     case 'pending':
       return '⏳';
+    case 'timeout':
+      return '⏱️';
     default:
       return '❓';
   }
@@ -317,6 +319,7 @@ export function exportTestStatistics(report: TestReport): void {
   setOutput('passed_tests', String(summary.passed));
   setOutput('failed_tests', String(summary.failed));
   setOutput('error_tests', String(summary.errors));
+  setOutput('timeout_tests', String(summary.timeouts));
   setOutput('success_rate', summary.successRate);
   
   console.log('✅ Exported test statistics as outputs');

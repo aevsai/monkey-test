@@ -78,6 +78,9 @@ outputs:
   error-tests:
     description: "Number of tests that encountered errors"
     value: ${{ steps.run-tests.outputs.error-tests }}
+  timeout-tests:
+    description: "Number of tests that timed out"
+    value: ${{ steps.run-tests.outputs.timeout-tests }}
   success-rate:
     description: "Test success rate percentage"
     value: ${{ steps.run-tests.outputs.success-rate }}

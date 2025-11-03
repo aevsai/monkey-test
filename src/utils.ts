@@ -86,6 +86,7 @@ export function getStatusIcon(status: string): string {
     failed: "❌",
     error: "⚠️",
     pending: "⏳",
+    timeout: "⏱️",
   };
   return icons[status] || "❓";
 }

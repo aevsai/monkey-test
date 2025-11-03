@@ -179,7 +179,7 @@ EXAMPLES:
     exportTestStatistics(report);
 
     // Add annotations for failed tests
-    const failedTests = this.results.filter(r => r.status === 'failed' || r.status === 'error');
+    const failedTests = this.results.filter(r => r.status === 'failed' || r.status === 'error' || r.status === 'timeout');
     if (failedTests.length > 0) {
       addAnnotation('error', `${failedTests.length} test(s) failed`, {
         title: 'Test Failures',
@@ -391,7 +391,7 @@ EXAMPLES:
       return 2;
     }
 
-    if (summary.failed > 0) {
+    if (summary.failed > 0 || summary.timeouts > 0) {
       if (this.config.failOnError) {
         console.log("❌ Tests failed - exiting with error code");
         return 1;

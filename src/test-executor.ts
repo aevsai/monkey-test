@@ -79,6 +79,7 @@ export async function executeTest(
     // Watch task status changes and wait for completion
     let lastStatus: string | undefined;
     let taskResult;
+    let finalStatus: string | undefined;
     
     for await (const update of task.watch()) {
       if (update.event === 'status') {
@@ -91,6 +92,7 @@ export async function executeTest(
         // Check if task is complete
         if (status === "finished" || status === "stopped") {
           taskResult = update.data;
+          finalStatus = status;
           break;
         }
       }
@@ -102,13 +104,34 @@ export async function executeTest(
 
     result.duration = (Date.now() - startTime) / 1000;
     result.output = taskResult.output;
-    result.status = "passed";
 
-    console.log(`✅ Test PASSED in ${result.duration.toFixed(2)}s`);
-    console.log(`📤 Output: ${taskResult.output}`);
+    // Determine final status based on task completion
+    if (finalStatus === "finished") {
+      result.status = "passed";
+      console.log(`✅ Test PASSED in ${result.duration.toFixed(2)}s`);
+      console.log(`📤 Output: ${taskResult.output}`);
+    } else if (finalStatus === "stopped") {
+      // Task was stopped - likely due to timeout or manual intervention
+      if (result.duration >= testCase.timeout) {
+        result.status = "timeout";
+        result.error = `Test exceeded timeout of ${testCase.timeout}s`;
+        console.log(`⏱️  Test TIMEOUT after ${result.duration.toFixed(2)}s`);
+        console.log(`💥 Error: ${result.error}`);
+      } else {
+        result.status = "failed";
+        result.error = "Task was stopped before completion";
+        console.log(`❌ Test FAILED in ${result.duration.toFixed(2)}s`);
+        console.log(`💥 Error: ${result.error}`);
+      }
+    } else {
+      result.status = "failed";
+      result.error = `Unexpected task status: ${finalStatus}`;
+      console.log(`❌ Test FAILED in ${result.duration.toFixed(2)}s`);
+      console.log(`💥 Error: ${result.error}`);
+    }
 
-    // Handle output files
-    if (taskResult.outputFiles && taskResult.outputFiles.length > 0) {
+    // Handle output files (only for passed tests)
+    if (result.status === "passed" && taskResult.outputFiles && taskResult.outputFiles.length > 0) {
       result.outputFiles = taskResult.outputFiles.map((file: any) => file.id);
       console.log(`📁 Output files: ${taskResult.outputFiles.length}`);
 
